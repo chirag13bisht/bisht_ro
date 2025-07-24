@@ -5,7 +5,7 @@ import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 export default function UpdateStockPrice() {
-  const { id } = useParams();
+  const { itemId } = useParams();
   const navigate = useNavigate();
 
   const [item, setItem] = useState(null);
@@ -14,20 +14,24 @@ export default function UpdateStockPrice() {
   useEffect(() => {
     const fetchItem = async () => {
       try {
-        const ref = doc(db, 'stock', id);
+        const ref = doc(db, 'stock', itemId);
         const snapshot = await getDoc(ref);
         if (snapshot.exists()) {
           setItem(snapshot.data());
+          
         } else {
           alert('Item not found');
-          navigate('/stock/:id');
+          navigate('/stock/:itemId');
         }
       } catch (err) {
         console.error('Error fetching item:', err);
       }
     };
+    
     fetchItem();
-  }, [id, navigate]);
+    
+
+  }, [itemId, navigate]);
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -38,7 +42,7 @@ export default function UpdateStockPrice() {
     }
 
     try {
-      await updateDoc(doc(db, 'stock', id), {
+      await updateDoc(doc(db, 'stock', itemId), {
         price,
         lastUpdated: serverTimestamp(),
       });

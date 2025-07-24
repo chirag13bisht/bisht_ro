@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { exportToExcel } from '../utils/exportTOExcel';
 import { Link } from 'react-router-dom';
+import { Trash2 } from 'lucide-react'; // Optional: You can use any icon here
 
 export default function Amclist() {
   const [customers, setCustomers] = useState([]);
-  const [filter, setFilter] = useState('all'); // all | active | expired
+  const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -33,7 +34,18 @@ export default function Amclist() {
     fetchCustomers();
   }, []);
 
-  // Filter logic
+  const handleDelete = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this AMC?");
+    if (!confirmDelete) return;
+
+    try {
+      await deleteDoc(doc(db, 'customers', id));
+      setCustomers(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      console.error('Error deleting AMC:', err);
+    }
+  };
+
   const filteredCustomers = customers.filter(c => {
     const matchesFilter =
       filter === 'all' ||
@@ -46,7 +58,6 @@ export default function Amclist() {
 
     return matchesFilter && matchesSearch;
   });
-  
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
@@ -94,36 +105,41 @@ export default function Amclist() {
           {filteredCustomers.map(customer => {
             const amcStatus = customer.isAmcActive;
             return (
-             
               <div
                 key={customer.id}
-                className={`p-5 bg-white shadow-lg rounded-lg border hover:shadow-xl transition ${
+                className={`relative p-5 bg-white shadow-lg rounded-lg border hover:shadow-xl transition ${
                   amcStatus ? 'border-green-300' : 'border-red-300'
                 }`}
               >
-                 <Link to={`/customer/${customer.id}`}>
-                <p className="font-semibold text-blue-800 text-lg">{customer.name}</p>
-                <p className="text-sm text-gray-700"><strong>Phone:</strong> {customer.phone}</p>
-                <p className="text-sm text-gray-700"><strong>Address:</strong> {customer.address}</p>
-                <p className="text-sm text-gray-700"><strong>Charge:</strong> ₹{customer.charge}</p>
-                <p className="text-sm text-gray-700">
-                  <strong>AMC:</strong> {customer.amcStart || '—'} → {customer.amcEnd || '—'}
-                  <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded ${
-                    amcStatus ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {amcStatus ? 'Active' : 'AMC Over'}
-                  </span>
-                </p>
-                <p className="text-sm text-gray-700"><strong>Remarks:</strong> {customer.remarks || '—'}</p>
+                {/* Delete icon */}
+                <button
+                  onClick={() => handleDelete(customer.id)}
+                  className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                  title="Delete AMC"
+                >
+                  <Trash2 size={18} />
+                </button>
+
+                <Link to={`/customer/${customer.id}`}>
+                  <p className="font-semibold text-blue-800 text-lg">{customer.name}</p>
+                  <p className="text-sm text-gray-700"><strong>Phone:</strong> {customer.phone}</p>
+                  <p className="text-sm text-gray-700"><strong>Address:</strong> {customer.address}</p>
+                  <p className="text-sm text-gray-700"><strong>Charge:</strong> ₹{customer.charge}</p>
+                  <p className="text-sm text-gray-700">
+                    <strong>AMC:</strong> {customer.amcStart || '—'} → {customer.amcEnd || '—'}
+                    <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded ${
+                      amcStatus ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {amcStatus ? 'Active' : 'AMC Over'}
+                    </span>
+                  </p>
+                  <p className="text-sm text-gray-700"><strong>Remarks:</strong> {customer.remarks || '—'}</p>
                 </Link>
               </div>
-              
             );
           })}
         </div>
-
       )}
     </div>
-    
   );
 }

@@ -5,7 +5,7 @@ import { db } from '../firebase/config';
 import { useParams, useNavigate } from 'react-router-dom';
 
 export default function UpdateStockQuantity() {
-  const { id } = useParams();
+  const { itemId } = useParams();
   const navigate = useNavigate();
 
   const [item, setItem] = useState(null);
@@ -13,7 +13,7 @@ export default function UpdateStockQuantity() {
 
   useEffect(() => {
     const fetchItem = async () => {
-      const ref = doc(db, 'stock', id);
+      const ref = doc(db, 'stock', itemId);
       const snapshot = await getDoc(ref);
       if (snapshot.exists()) {
         setItem(snapshot.data());
@@ -23,7 +23,7 @@ export default function UpdateStockQuantity() {
       }
     };
     fetchItem();
-  }, [id, navigate]);
+  }, [itemId, navigate]);
 
   const updateQuantity = async (change) => {
     const changeAmount = parseInt(adjustQty);
@@ -39,7 +39,7 @@ export default function UpdateStockQuantity() {
     }
 
     try {
-      await updateDoc(doc(db, 'stock', id), {
+      await updateDoc(doc(db, 'stock', itemId), {
         quantity: newQty,
         lastUpdated: serverTimestamp(),
       });

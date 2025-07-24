@@ -13,6 +13,7 @@ export default function CashflowPage() {
   const [entries, setEntries] = useState([]);
   const [filter, setFilter] = useState('overall');
   const [category, setCategory] = useState('sale');
+  const [customType, setCustomType] = useState('credit');
   const [itemName, setItemName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [amount, setAmount] = useState('');
@@ -38,32 +39,40 @@ export default function CashflowPage() {
   };
 
   const handleAddEntry = async () => {
-    if (!amount || !category || !itemName || !quantity) return alert('⚠️ Fill all fields');
+    if (!amount || !category || (category !== 'other' && (!itemName || !quantity))) return alert('⚠️ Fill all fields');
 
-    const itemNameTrimmed = itemName.trim().toLowerCase();
-    const matchedItem = stockItems.find(i => i.name.toLowerCase() === itemNameTrimmed);
-    const type = category === 'sale' ? 'credit' : 'debit';
+    let type = category === 'sale' ? 'credit' : 'debit';
+    let itemNameTrimmed = itemName.trim().toLowerCase();
+    let qty = Number(quantity);
 
-    if (category === 'sale') {
-      if (!matchedItem) return alert(`❌ Item "${itemName}" not found in stock.`);
-      if (matchedItem.quantity < Number(quantity)) {
-        return alert(`❌ Only ${matchedItem.quantity} available in stock for "${itemName}".`);
-      }
-      await updateDoc(doc(db, 'stock', matchedItem.id), {
-        quantity: matchedItem.quantity - Number(quantity),
-      });
-    } else if (category === 'purchase') {
-      if (matchedItem) {
+    if (category === 'other') {
+      type = customType;
+      itemNameTrimmed = '';
+      qty = null;
+    } else {
+      const matchedItem = stockItems.find(i => i.name.toLowerCase() === itemNameTrimmed);
+
+      if (category === 'sale') {
+        if (!matchedItem) return alert(`❌ Item "${itemName}" not found in stock.`);
+        if (matchedItem.quantity < qty) {
+          return alert(`❌ Only ${matchedItem.quantity} available in stock for "${itemName}".`);
+        }
         await updateDoc(doc(db, 'stock', matchedItem.id), {
-          quantity: matchedItem.quantity + Number(quantity),
+          quantity: matchedItem.quantity - qty,
         });
-      } else {
-        await addDoc(collection(db, 'stock'), {
-          name: itemNameTrimmed,
-          quantity: Number(quantity),
-          pricePerUnit: Number(amount) / Number(quantity),
-          createdAt: new Date(),
-        });
+      } else if (category === 'purchase') {
+        if (matchedItem) {
+          await updateDoc(doc(db, 'stock', matchedItem.id), {
+            quantity: matchedItem.quantity + qty,
+          });
+        } else {
+          await addDoc(collection(db, 'stock'), {
+            name: itemNameTrimmed,
+            quantity: qty,
+            pricePerUnit: Number(amount) / qty,
+            createdAt: new Date(),
+          });
+        }
       }
     }
 
@@ -72,7 +81,7 @@ export default function CashflowPage() {
       category,
       amount: Number(amount),
       itemName: itemNameTrimmed,
-      quantity: Number(quantity),
+      quantity: qty,
       description,
       date: new Date(),
       recordedBy: 'admin',
@@ -83,6 +92,7 @@ export default function CashflowPage() {
     setItemName('');
     setQuantity('');
     setDescription('');
+    setCustomType('credit');
     fetchEntries();
     fetchStock();
   };
@@ -189,21 +199,41 @@ export default function CashflowPage() {
           <select className="border p-2 rounded" value={category} onChange={e => setCategory(e.target.value)}>
             <option value="sale">Sale</option>
             <option value="purchase">Purchase</option>
+            <option value="other">Other</option>
           </select>
-          <input
-            type="text"
-            className="border p-2 rounded"
-            placeholder="Item Name"
-            value={itemName}
-            onChange={e => setItemName(e.target.value)}
-            list="item-suggestions"
-          />
-          <datalist id="item-suggestions">
-            {suggestedNames.map((name, idx) => (
-              <option key={idx} value={name} />
-            ))}
-          </datalist>
-          <input type="number" className="border p-2 rounded" placeholder="Quantity" value={quantity} onChange={e => setQuantity(e.target.value)} />
+
+          {category === 'other' && (
+            <select className="border p-2 rounded" value={customType} onChange={e => setCustomType(e.target.value)}>
+              <option value="credit">Credit</option>
+              <option value="debit">Debit</option>
+            </select>
+          )}
+
+          {category !== 'other' && (
+            <>
+              <input
+                type="text"
+                className="border p-2 rounded"
+                placeholder="Item Name"
+                value={itemName}
+                onChange={e => setItemName(e.target.value)}
+                list="item-suggestions"
+              />
+              <datalist id="item-suggestions">
+                {suggestedNames.map((name, idx) => (
+                  <option key={idx} value={name} />
+                ))}
+              </datalist>
+              <input
+                type="number"
+                className="border p-2 rounded"
+                placeholder="Quantity"
+                value={quantity}
+                onChange={e => setQuantity(e.target.value)}
+              />
+            </>
+          )}
+
           <input type="number" className="border p-2 rounded" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
           <input type="text" className="border p-2 rounded" placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} />
         </div>
