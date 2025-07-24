@@ -9,7 +9,6 @@ export default function Amcform() {
     address: '',
     charge: '',
     amcStart: '',
-    amcEnd: '',
     remarks: ''
   });
 
@@ -30,31 +29,11 @@ export default function Amcform() {
     }
   };
 
-  // ✅ Cashflow Logging Helper
-  const addCashflowEntry = async ({ type, category, amount, description }) => {
-    await addDoc(collection(db, 'cashflow'), {
-      type, // 'credit' or 'debit'
-      category, // 'amc', 'complaint', 'manual', etc.
-      amount: Number(amount),
-      description,
-      date: new Date()
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const docRef = await addDoc(collection(db, 'customers'), formData);
-
-      // ✅ Add to cashflow
-      await addCashflowEntry({
-        type: 'credit',
-        category: 'amc',
-        amount: formData.charge,
-        description: `AMC Charge from ${formData.name}`
-      });
-
-      alert('✅ Customer added and cashflow logged!');
+      await addDoc(collection(db, 'customers'), formData);
+      alert('✅ Customer added!');
       setFormData({
         name: '',
         phone: '',

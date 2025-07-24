@@ -12,6 +12,10 @@ export default function UpdateComplaint() {
   const [selectedItems, setSelectedItems] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [amountReceived, setAmountReceived] = useState('');
+  const [dateCompleted, setDateCompleted] = useState(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return today;
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,7 +76,6 @@ export default function UpdateComplaint() {
     setSuggestions([]);
   };
 
-  // ✅ Cashflow Logging
   const addCashflowEntry = async ({ type, category, amount, description }) => {
     await addDoc(collection(db, 'cashflow'), {
       type,
@@ -97,15 +100,13 @@ export default function UpdateComplaint() {
 
       const receivedAmount = complaint.type === 'AMC' ? 'AMC' : amountReceived;
 
-      // Update complaint
       await updateDoc(doc(db, 'complaints', id), {
         status: 'completed',
         itemsUsed: selectedItems.map(i => i.name).join(', '),
         amountReceived: receivedAmount,
-        completedDate: new Date()
+        completedDate: new Date(dateCompleted)
       });
 
-      // ✅ Add to cashflow if not AMC
       if (complaint.type !== 'AMC') {
         await addCashflowEntry({
           type: 'credit',
@@ -202,6 +203,18 @@ export default function UpdateComplaint() {
             />
           </div>
         )}
+
+        {/* Date Completed Input */}
+        <div>
+          <label className="block mb-1 font-medium">Date Completed</label>
+          <input
+            type="date"
+            className="w-full border border-gray-300 p-2 rounded"
+            value={dateCompleted}
+            onChange={(e) => setDateCompleted(e.target.value)}
+            required
+          />
+        </div>
 
         <button
           type="submit"

@@ -14,6 +14,12 @@ export default function ComplaintForm() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
 
+  // Date reported
+  const [dateReported, setDateReported] = useState(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return today;
+  });
+
   useEffect(() => {
     const fetchCustomers = async () => {
       const snapshot = await getDocs(collection(db, 'customers'));
@@ -44,7 +50,7 @@ export default function ComplaintForm() {
       type,
       issue,
       status: 'pending',
-      dateReported: new Date(),
+      dateReported: new Date(dateReported),
       ...(type === 'amc' && selectedCustomer ? {
         customerId: selectedCustomer.value,
         name: selectedCustomer.name,
@@ -68,6 +74,7 @@ export default function ComplaintForm() {
     setName('');
     setPhone('');
     setAddress('');
+    setDateReported(new Date().toISOString().split('T')[0]);
   };
 
   return (
@@ -149,6 +156,18 @@ export default function ComplaintForm() {
           rows={3}
           className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Describe the issue..."
+          required
+        />
+      </div>
+
+      {/* Date Reported Input */}
+      <div className="mb-4">
+        <label className="block mb-2 font-medium text-gray-700">Date Reported</label>
+        <input
+          type="date"
+          value={dateReported}
+          onChange={e => setDateReported(e.target.value)}
+          className="w-full border border-gray-300 rounded-md p-2"
           required
         />
       </div>
