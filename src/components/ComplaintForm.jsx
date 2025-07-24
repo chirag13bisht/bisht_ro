@@ -9,6 +9,11 @@ export default function ComplaintForm() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [issue, setIssue] = useState('');
 
+  // For regular complaint
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+
   useEffect(() => {
     const fetchCustomers = async () => {
       const snapshot = await getDocs(collection(db, 'customers'));
@@ -30,16 +35,26 @@ export default function ComplaintForm() {
       return;
     }
 
+    if (type === 'regular' && (!name || !phone || !address)) {
+      alert('Please fill in all customer details for a regular complaint.');
+      return;
+    }
+
     const newComplaint = {
       type,
       issue,
-      status: 'pending', // always pending initially
+      status: 'pending',
       dateReported: new Date(),
       ...(type === 'amc' && selectedCustomer ? {
         customerId: selectedCustomer.value,
-        customerName: selectedCustomer.name,
-        customerPhone: selectedCustomer.phone,
-        customerAddress: selectedCustomer.address
+        name: selectedCustomer.name,
+        phone: selectedCustomer.phone,
+        address: selectedCustomer.address
+      } : {}),
+      ...(type === 'regular' ? {
+        name: name,
+        phone: phone,
+        address: address
       } : {})
     };
 
@@ -50,6 +65,9 @@ export default function ComplaintForm() {
     setType('');
     setSelectedCustomer(null);
     setIssue('');
+    setName('');
+    setPhone('');
+    setAddress('');
   };
 
   return (
@@ -84,6 +102,42 @@ export default function ComplaintForm() {
             className="text-sm"
           />
         </div>
+      )}
+
+      {/* Regular Customer Manual Entry */}
+      {type === 'regular' && (
+        <>
+          <div className="mb-4">
+            <label className="block mb-2 font-medium text-gray-700">Customer Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full border border-gray-300 rounded-md p-2"
+              required
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block mb-2 font-medium text-gray-700">Phone Number</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              className="w-full border border-gray-300 rounded-md p-2"
+              required
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block mb-2 font-medium text-gray-700">Address</label>
+            <input
+              type="text"
+              value={address}
+              onChange={e => setAddress(e.target.value)}
+              className="w-full border border-gray-300 rounded-md p-2"
+              required
+            />
+          </div>
+        </>
       )}
 
       {/* Issue Description */}
