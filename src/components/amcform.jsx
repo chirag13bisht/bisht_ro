@@ -29,10 +29,28 @@ export default function Amcform() {
     }
   };
 
+   const addCashflowEntry = async ({ type, category, amount, description, date }) => {
+    await addDoc(collection(db, 'cashflow'), {
+      type, // 'credit' or 'debit'
+      category, // 'amc', 'complaint', 'manual', etc.
+      amount: Number(amount),
+      description,
+      date: new Date(date)
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       await addDoc(collection(db, 'customers'), formData);
+
+      await addCashflowEntry({
+        type: 'credit',
+        category: 'amc',
+        amount: formData.charge,
+        description: `AMC Charge from ${formData.name}`,
+        date: formData.amcStart
+      });
       alert('✅ Customer added!');
       setFormData({
         name: '',
