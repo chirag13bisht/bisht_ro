@@ -13,10 +13,12 @@ export default function Amcform() {
   });
 
   const calculateAmcEnd = (startDate) => {
-    const date = new Date(startDate);
-    date.setFullYear(date.getFullYear() + 1);
-    return date.toISOString().split('T')[0];
-  };
+  const date = new Date(startDate);
+  date.setFullYear(date.getFullYear() + 1);
+  date.setDate(date.getDate() - 1); // Subtract 1 day
+  return date.toISOString().split('T')[0];
+};
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
