@@ -20,6 +20,7 @@ import LoginPage from './Pages/LoginPage';
 import ResetPassword from './Pages/ResetPassword';
 import DashboardPage from './Pages/Dashboard';
 import CustomerDetails from './Pages/CustomerDetails';
+import BillForm from './components/BillForm'
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null); // null = loading
@@ -48,6 +49,7 @@ function App() {
 
         {/* Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute element={<DashboardPage />} />} />
+        <Route path="/billform" element={<ProtectedRoute element={<BillForm />} />} />
         <Route path="/add-customer" element={<ProtectedRoute element={<Amcform />} />} />
         <Route path="/customers" element={<ProtectedRoute element={<Amclist />} />} />
         <Route path="/customer/:id" element={<CustomerDetails />} />
