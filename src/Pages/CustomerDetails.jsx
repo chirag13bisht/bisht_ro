@@ -102,7 +102,10 @@ export default function CustomerDetails() {
   };
  
   const generateInvoice = () => {
-  if ( !customer.description || !customer.discount || !customer.invoice_no) {
+  if ( customer.description === undefined || customer.description === null || customer.description === '' ||
+    customer.discount === undefined || customer.discount === null || customer.discount === '' ||
+    customer.invoice_no === undefined || customer.invoice_no === null || customer.invoice_no === '') {
+    console.log(customer.description, customer.discount)
     setInvoiceDialogOpen(true);
   } else {
     saveInvoiceFieldsAndGenerate();
@@ -124,18 +127,20 @@ export default function CustomerDetails() {
 
     // Now generate the bill
     await generateAmcBill({
-      name: customer.name,
-      address: customer.address,
-      phone: customer.phone,
-      invoice_no: invoiceData.invoice_no,
-      date: customer.amcStart,
-      discount: Number(invoiceData.discount),
-      items: [{
-        description: invoiceData.description,
-        qty: 1,
-        rate: customer.charge,
-      }],
-    });
+  name: customer.name,
+  address: customer.address,
+  phone: customer.phone,
+  invoice_no: invoiceData.invoice_no || customer.invoice_no || '',
+  date: customer.amcStart,
+  discount: invoiceData.discount !== undefined && invoiceData.discount !== '' 
+    ? Number(invoiceData.discount) 
+    : Number(customer.discount) || 0,
+  items: [{
+    description: invoiceData.description || customer.description || '',
+    qty: customer.quantity > 0 ? customer.quantity : 1,
+    rate: customer.charge,
+  }],
+});
   } catch (error) {
     console.error('Error saving invoice fields:', error);
   }

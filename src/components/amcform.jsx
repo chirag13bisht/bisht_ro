@@ -7,6 +7,7 @@ export default function Amcform() {
     name: '',
     phone: '',
     address: '',
+    quantity: '',
     charge: '',
     amcStart: '',
     remarks: ''
@@ -31,13 +32,14 @@ export default function Amcform() {
     }
   };
 
-   const addCashflowEntry = async ({ type, category, amount, description, date }) => {
+   const addCashflowEntry = async ({ type, category, amount, description, date, quantity }) => {
     await addDoc(collection(db, 'cashflow'), {
       type, // 'credit' or 'debit'
       category, // 'amc', 'complaint', 'manual', etc.
       amount: Number(amount),
       description,
-      date: new Date(date)
+      date: new Date(date),
+      quantity: Number(quantity) || 1
     });
   };
 
@@ -49,9 +51,10 @@ export default function Amcform() {
       await addCashflowEntry({
         type: 'credit',
         category: 'amc',
-        amount: formData.charge,
+        amount: Number(formData.charge) * (Number(formData.quantity) || 1),
         description: `AMC Charge from ${formData.name}`,
-        date: formData.amcStart
+        date: formData.amcStart,
+        quantity: formData.quantity
       });
       alert('✅ Customer added!');
       setFormData({
@@ -61,7 +64,8 @@ export default function Amcform() {
         charge: '',
         amcStart: '',
         amcEnd: '',
-        remarks: ''
+        remarks: '',
+        quantity: '',
       });
     } catch (err) {
       console.error('Error adding customer:', err);
@@ -160,7 +164,19 @@ export default function Amcform() {
             className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-400"
           />
         </div>
+        <div className="md:col-span-2">
+          <label className="text-sm text-gray-700 font-medium">Quantity</label>
+          <input
+            type="number"
+            name="quantity"
+            value={formData.quantity}
+            onChange={handleChange}
+            placeholder="Quantity"
+            className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
       </div>
+      
 
       <button
         type="submit"

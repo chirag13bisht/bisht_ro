@@ -78,11 +78,10 @@ export default function Amclist() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-1 rounded border font-semibold transition ${
-                filter === f
+              className={`px-4 py-1 rounded border font-semibold transition ${filter === f
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 hover:bg-gray-200'
-              }`}
+                }`}
             >
               {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
@@ -107,9 +106,8 @@ export default function Amclist() {
             return (
               <div
                 key={customer.id}
-                className={`relative p-5 bg-white shadow-lg rounded-lg border hover:shadow-xl transition ${
-                  amcStatus ? 'border-green-300' : 'border-red-300'
-                }`}
+                className={`relative p-5 bg-white shadow-lg rounded-lg border hover:shadow-xl transition ${amcStatus ? 'border-green-300' : 'border-red-300'
+                  }`}
               >
                 {/* Delete icon */}
                 <button
@@ -124,12 +122,15 @@ export default function Amclist() {
                   <p className="font-semibold text-blue-800 text-lg">{customer.name}</p>
                   <p className="text-sm text-gray-700"><strong>Phone:</strong> {customer.phone}</p>
                   <p className="text-sm text-gray-700"><strong>Address:</strong> {customer.address}</p>
-                  <p className="text-sm text-gray-700"><strong>Charge:</strong> ₹{customer.charge}</p>
+                  <p className="text-sm text-gray-700">
+                    <strong>Charge:</strong> ₹
+                    {customer.quantity ? customer.charge * customer.quantity : customer.charge}
+                  </p>
+
                   <p className="text-sm text-gray-700">
                     <strong>AMC:</strong> {customer.amcStart || '—'} → {customer.amcEnd || '—'}
-                    <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded ${
-                      amcStatus ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}>
+                    <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded ${amcStatus ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}>
                       {amcStatus ? 'Active' : 'AMC Over'}
                     </span>
                   </p>

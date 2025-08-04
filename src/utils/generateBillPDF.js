@@ -37,7 +37,7 @@ export async function generateBillPDF(data) {
 
     const total = itemsFormatted.reduce((sum, item) => sum + parseFloat(item.amount), 0);
     const discount = Number(data.discount || 0);
-    const grandTotal = total - discount;
+    const grandTotal = total + discount;
 
     const billData = {
       name: data.name,
