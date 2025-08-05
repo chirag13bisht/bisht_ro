@@ -168,7 +168,7 @@ export default function CustomerDetails() {
         <p><strong>Status:</strong> <span className={`font-bold ${new Date(customer.amcEnd) > new Date() ? 'text-green-600' : 'text-red-600'}`}>
           {new Date(customer.amcEnd) > new Date() ? 'Active' : 'Expired'}
         </span></p>
-        <p><strong>Charge:</strong> ₹{customer.charge}</p>
+        <p><strong>Charge:</strong> ₹{customer.quantity ? customer.charge * customer.quantity : customer.charge}</p>
         <p><strong>Remarks:</strong> {customer.remarks || '—'}</p>
         <div className="flex justify-between items-center mb-4">
       </div>

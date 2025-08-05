@@ -97,8 +97,7 @@ export default function UpdateComplaint() {
           await updateDoc(ref, { quantity: newQty });
         }
       }
-
-      const receivedAmount = complaint.type === 'AMC' ? 'AMC' : amountReceived;
+      const receivedAmount = complaint.type?.toLowerCase() === 'amc' ? 'AMC' : amountReceived;
 
       await updateDoc(doc(db, 'complaints', id), {
         status: 'completed',
@@ -107,7 +106,7 @@ export default function UpdateComplaint() {
         completedDate: new Date(dateCompleted)
       });
 
-      if (complaint.type !== 'AMC') {
+      if (complaint.type?.toLowerCase() !== 'amc') {
         await addCashflowEntry({
           type: 'credit',
           category: 'complaint',
@@ -190,7 +189,7 @@ export default function UpdateComplaint() {
         </div>
 
         {/* Amount Received if not AMC */}
-        {complaint.type !== 'AMC' && (
+        {complaint.type?.toLowerCase() !== 'amc' && (
           <div>
             <label className="block mb-1 font-medium">Amount Received</label>
             <input
