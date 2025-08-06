@@ -7,6 +7,8 @@ import {
 import { db } from '../firebase/config';
 import { exportToExcel } from '../utils/exportTOExcel'; // make sure this exists
 import { generateAmcBill } from '../utils/generateAmcBill';
+import EditComplaintModal from '../components/EditComplaintModal';
+
 
 export default function CustomerDetails() {
   const { id } = useParams();
@@ -18,6 +20,7 @@ export default function CustomerDetails() {
   const [dateFilter, setDateFilter] = useState('');
   const [sortBy, setSortBy] = useState('dateReported');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [editingComplaint, setEditingComplaint] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const complaintsPerPage = 5;
@@ -145,6 +148,17 @@ export default function CustomerDetails() {
     console.error('Error saving invoice fields:', error);
   }
 };
+const handleComplaintSave = async (complaintId, updatedData) => {
+  const complaintRef = doc(db, 'complaints', complaintId);
+  await updateDoc(complaintRef, updatedData);
+  setEditingComplaint(null);
+  // Refresh complaints list
+  const q = query(collection(db, 'complaints'), where('customerId', '==', id));
+  const snapshot = await getDocs(q);
+  const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  setComplaints(list);
+};
+
 
 
   if (!customer) return <div className="p-6 text-center">Loading customer data...</div>;
@@ -227,7 +241,7 @@ export default function CustomerDetails() {
                 <td className="px-4 py-2">{c.itemsUsed || '—'}</td>
                 <td className="px-4 py-2">{c.amountReceived || '—'}</td>
                 <td className="px-4 py-2 space-x-2">
-                  <button onClick={() => alert('Edit logic not yet implemented')} className="bg-yellow-400 px-2 py-1 rounded">Edit</button>
+                  <button  onClick={() => setEditingComplaint(c)} className="bg-yellow-400 px-2 py-1 rounded">Edit</button>
                   <button onClick={() => handleDelete(c.id)} className="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
                 </td>
               </tr>
@@ -282,6 +296,13 @@ export default function CustomerDetails() {
           </div>
         </div>
       )}
+      {editingComplaint && (
+  <EditComplaintModal
+    complaint={editingComplaint}
+    onClose={() => setEditingComplaint(null)}
+    onSave={handleComplaintSave}
+  />
+)}
     </div>
   );
 }

@@ -44,33 +44,39 @@ export default function Amcform() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await addDoc(collection(db, 'customers'), formData);
+  e.preventDefault();
+  try {
+    // Step 1: Add cashflow entry first
+    const cashflowDoc = await addDoc(collection(db, 'cashflow'), {
+      type: 'credit',
+      category: 'amc',
+      amount: Number(formData.charge) * (Number(formData.quantity) || 1),
+      description: `AMC Charge from ${formData.name}`,
+      date: new Date(formData.amcStart),
+      quantity: Number(formData.quantity) || 1,
+    });
 
-      await addCashflowEntry({
-        type: 'credit',
-        category: 'amc',
-        amount: Number(formData.charge) * (Number(formData.quantity) || 1),
-        description: `AMC Charge from ${formData.name}`,
-        date: formData.amcStart,
-        quantity: formData.quantity
-      });
-      alert('✅ Customer added!');
-      setFormData({
-        name: '',
-        phone: '',
-        address: '',
-        charge: '',
-        amcStart: '',
-        amcEnd: '',
-        remarks: '',
-        quantity: '',
-      });
-    } catch (err) {
-      console.error('Error adding customer:', err);
-    }
-  };
+    // Step 2: Add customer with reference to cashflow ID
+    await addDoc(collection(db, 'customers'), {
+      ...formData,
+      cashflowId: cashflowDoc.id
+    });
+
+    alert('✅ Customer added!');
+    setFormData({
+      name: '',
+      phone: '',
+      address: '',
+      charge: '',
+      amcStart: '',
+      amcEnd: '',
+      remarks: '',
+      quantity: '',
+    });
+  } catch (err) {
+    console.error('Error adding customer:', err);
+  }
+};
 
   return (
     <form
@@ -145,10 +151,10 @@ export default function Amcform() {
         <div>
           <label className="text-sm text-gray-700 font-medium">AMC End Date</label>
           <input
-            type="text"
+            type="date"
             name="amcEnd"
             value={formData.amcEnd || ''}
-            disabled
+            onChange={handleChange}
             className="w-full border border-gray-200 bg-gray-50 p-2 rounded text-gray-700"
           />
         </div>

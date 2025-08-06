@@ -54,27 +54,39 @@ export default function UpdateComplaint() {
   };
 
   const addItem = (input) => {
-    const match = stockItems.find(
-      i => i.name.toLowerCase() === input.trim().toLowerCase()
-    );
+    const match = stockItems.find(i => i.name.toLowerCase() === input.trim().toLowerCase());
 
     if (match) {
-      if (!selectedItems.find(i => i.id === match.id)) {
-        setSelectedItems(prev => [...prev, match]);
-      }
+      setSelectedItems(prev => {
+        const existing = prev.find(i => i.id === match.id);
+        if (existing) {
+          return prev.map(i => i.id === match.id ? { ...i, quantity: i.quantity + 1 } : i);
+        } else {
+          return [...prev, { ...match, quantity: 1 }];
+        }
+      });
     } else {
       const customId = `custom-${input.trim()}`;
-      if (!selectedItems.find(i => i.id === customId)) {
-        setSelectedItems(prev => [
-          ...prev,
-          { id: customId, name: input.trim(), custom: true }
-        ]);
-      }
+      setSelectedItems(prev => {
+        const existing = prev.find(i => i.id === customId);
+        if (existing) {
+          return prev.map(i => i.id === customId ? { ...i, quantity: i.quantity + 1 } : i);
+        } else {
+          return [...prev, { id: customId, name: input.trim(), custom: true, quantity: 1 }];
+        }
+      });
     }
 
     setItemInput('');
     setSuggestions([]);
   };
+
+  const removeOneItem = (id) => {
+    setSelectedItems(prev => prev.map(item =>
+      item.id === id ? { ...item, quantity: item.quantity - 1 } : item
+    ).filter(item => item.quantity > 0));
+  };
+
 
   const addCashflowEntry = async ({ type, category, amount, description }) => {
     await addDoc(collection(db, 'cashflow'), {
@@ -176,13 +188,18 @@ export default function UpdateComplaint() {
             {selectedItems.map(item => (
               <span
                 key={item.id}
-                className={`px-3 py-1 rounded-full text-sm ${
-                  item.custom
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-blue-100 text-blue-700'
+                className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${
+                  item.custom ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-700'
                 }`}
               >
-                {item.name}
+                {item.name} x{item.quantity}
+                <button
+                  type="button"
+                  className="ml-1 text-red-500 hover:text-red-700 font-bold"
+                  onClick={() => removeOneItem(item.id)}
+                >
+                  ×
+                </button>
               </span>
             ))}
           </div>

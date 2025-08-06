@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { exportToExcel } from '../utils/exportTOExcel';
 import { Link } from 'react-router-dom';
@@ -35,16 +35,30 @@ export default function Amclist() {
   }, []);
 
   const handleDelete = async (id) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this AMC?");
-    if (!confirmDelete) return;
+  const confirmDelete = window.confirm("Are you sure you want to delete this AMC?");
+  if (!confirmDelete) return;
 
-    try {
-      await deleteDoc(doc(db, 'customers', id));
-      setCustomers(prev => prev.filter(c => c.id !== id));
-    } catch (err) {
-      console.error('Error deleting AMC:', err);
+  try {
+    // 1. Get the customer details first
+    const customer = customers.find(c => c.id === id);
+    if (!customer) return;
+
+    // 2. Delete customer document
+    await deleteDoc(doc(db, 'customers', id));
+
+    // 3. If customer has a cashflowId, delete that cashflow entry
+    if (customer.cashflowId) {
+      await deleteDoc(doc(db, 'cashflow', customer.cashflowId));
     }
-  };
+
+    // 4. Update local state
+    setCustomers(prev => prev.filter(c => c.id !== id));
+
+  } catch (err) {
+    console.error('Error deleting AMC and related cashflow:', err);
+  }
+};
+
 
   const filteredCustomers = customers.filter(c => {
     const matchesFilter =

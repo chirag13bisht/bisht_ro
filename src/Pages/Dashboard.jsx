@@ -14,41 +14,126 @@ export default function DashboardPage() {
   }, []);
 
   const fetchData = async () => {
-    const amcSnap = await getDocs(collection(db, 'customers'));
-    setAmcList(amcSnap.docs.map(doc => doc.data()));
+    const [amcSnap, compSnap, cashSnap] = await Promise.all([
+      getDocs(collection(db, 'customers')),
+      getDocs(collection(db, 'complaints')),
+      getDocs(collection(db, 'cashflow'))
+    ]);
 
-    const compSnap = await getDocs(collection(db, 'complaints'));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const amcData = amcSnap.docs.map(doc => {
+      const data = doc.data();
+      let endDate;
+
+      if (data.amcEnd?.toDate) {
+        endDate = data.amcEnd.toDate();
+      } else if (typeof data.amcEnd === 'string') {
+        endDate = new Date(data.amcEnd);
+      }
+
+      if (endDate instanceof Date && !isNaN(endDate)) {
+        endDate.setHours(0, 0, 0, 0);
+      }
+
+      return {
+        ...data,
+        amcActive: endDate && endDate >= today
+      };
+    });
+
+    setAmcList(amcData);
     setComplaints(compSnap.docs.map(doc => doc.data()));
-
-    const cashSnap = await getDocs(collection(db, 'cashflow'));
     setCashflow(cashSnap.docs.map(doc => doc.data()));
   };
 
+  // Summary Metrics
   const totalAMCs = amcList.length;
-  const activeAMCs = amcList.filter(c => c.status?.toLowerCase() === 'active').length;
+  const activeAMCs = amcList.filter(c => c.amcActive).length;
   const pendingComplaints = complaints.filter(c => c.status?.toLowerCase() !== 'completed').length;
   const totalProfit = cashflow.reduce((acc, e) => e.type === 'credit' ? acc + e.amount : acc - e.amount, 0);
 
-  const monthlyCounts = Array(12).fill(0);
+  const totalAmcRevenue = cashflow
+    .filter(e => e.category === 'amc')
+    .reduce((acc, e) => acc + e.amount, 0);
+
+  const totalComplaintRevenue = cashflow
+    .filter(e => e.category === 'complaint')
+    .reduce((acc, e) => acc + e.amount, 0);
+
+  // Monthly AMC Signups
+  const monthlyAmcCounts = Array(12).fill(0);
   amcList.forEach(c => {
-    const date = new Date(c.dateCreated?.toDate?.() || c.dateCreated);
-    monthlyCounts[date.getMonth()]++;
+    if (c.amcStart) {
+      const d = new Date(c.amcStart);
+      monthlyAmcCounts[d.getMonth()]++;
+    }
   });
 
+  // Monthly Revenue
+  const monthlyRevenue = Array(12).fill(0);
+  cashflow.forEach(e => {
+    const d = new Date(e.date?.toDate?.() || e.date);
+    if (!isNaN(d)) {
+      const month = d.getMonth();
+      monthlyRevenue[month] += (e.type === 'credit' ? e.amount : -e.amount);
+    }
+  });
+
+  // Complaint Status Pie
+  const complaintStatus = {
+    completed: complaints.filter(c => c.status?.toLowerCase() === 'completed').length,
+    pending: complaints.filter(c => c.status?.toLowerCase() !== 'completed').length
+  };
+
+  // Top 5 Stock Items Used
+  const itemFrequency = {};
+  complaints.forEach(complaint => {
+    const items = complaint.itemsUsed?.split(',') || [];
+    items.forEach(item => {
+      const trimmed = item.trim().toLowerCase();
+      if (trimmed) {
+        itemFrequency[trimmed] = (itemFrequency[trimmed] || 0) + 1;
+      }
+    });
+  });
+
+  const topStockItems = Object.entries(itemFrequency)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  // Top 5 Paying Customers
+  const customerTotals = {};
+  cashflow.forEach(entry => {
+    if (entry.type === 'credit') {
+      const match = entry.description?.match(/from\s(.+)$/i);
+      const name = match?.[1]?.trim();
+      if (name) {
+        customerTotals[name] = (customerTotals[name] || 0) + entry.amount;
+      }
+    }
+  });
+
+  const topCustomers = Object.entries(customerTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  // Chart Data
   const barData = {
     labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
     datasets: [
       {
         label: 'AMC Signups',
         backgroundColor: '#60a5fa',
-        data: monthlyCounts
+        data: monthlyAmcCounts
+      },
+      {
+        label: 'Monthly Profit',
+        backgroundColor: '#34d399',
+        data: monthlyRevenue
       }
     ]
-  };
-
-  const complaintStatus = {
-    completed: complaints.filter(c => c.status === 'completed').length,
-    pending: complaints.filter(c => c.status !== 'completed').length
   };
 
   const pieData = {
@@ -81,15 +166,52 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Revenue Cards */}
+      <div className="grid sm:grid-cols-2 gap-6 mb-10">
+        <div className="bg-purple-100 text-purple-800 p-4 rounded shadow font-semibold text-center">
+          AMC Revenue: ₹{totalAmcRevenue}
+        </div>
+        <div className="bg-pink-100 text-pink-800 p-4 rounded shadow font-semibold text-center">
+          Complaint Revenue: ₹{totalComplaintRevenue}
+        </div>
+      </div>
+
       {/* Charts */}
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-6 mb-10">
         <div className="bg-white rounded shadow p-4">
-          <h3 className="text-lg font-semibold mb-2 text-center">Monthly AMC Signups</h3>
+          <h3 className="text-lg font-semibold mb-2 text-center">📈 AMC Signups & Revenue</h3>
           <Bar data={barData} />
         </div>
         <div className="bg-white rounded shadow p-4">
-          <h3 className="text-lg font-semibold mb-2 text-center">Complaint Status</h3>
+          <h3 className="text-lg font-semibold mb-2 text-center">🛠️ Complaint Status</h3>
           <Pie data={pieData} />
+        </div>
+      </div>
+
+      {/* Top 5 Sections */}
+      <div className="grid md:grid-cols-2 gap-6 mt-10">
+        <div className="bg-white rounded shadow p-4">
+          <h3 className="text-lg font-semibold mb-2 text-center">Top 5 Stock Items Used</h3>
+          <ul className="space-y-2">
+            {topStockItems.map(([item, count], index) => (
+              <li key={index} className="flex justify-between text-sm">
+                <span>{item}</span>
+                <span className="font-semibold">{count} uses</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="bg-white rounded shadow p-4">
+          <h3 className="text-lg font-semibold mb-2 text-center">Top 5 Paying Customers</h3>
+          <ul className="space-y-2">
+            {topCustomers.map(([name, amount], index) => (
+              <li key={index} className="flex justify-between text-sm">
+                <span>{name}</span>
+                <span className="font-semibold">₹{amount}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>
