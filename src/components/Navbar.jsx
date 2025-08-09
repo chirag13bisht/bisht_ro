@@ -48,15 +48,17 @@ export default function Navbar() {
 
       {/* Mobile Menu Dropdown */}
       {isOpen && (
-        <div className="md:hidden px-4 pb-4 space-y-2 text-sm font-medium">
-          <Link to="/add-customer" className="block hover:text-yellow-300" onClick={() => setIsOpen(false)}>Add Customer</Link>
-          <Link to="/customers" className="block hover:text-yellow-300" onClick={() => setIsOpen(false)}>Customer List</Link>
-          <Link to="/stock" className="block hover:text-yellow-300" onClick={() => setIsOpen(false)}>Stock</Link>
-          <Link to="/complaints" className="block hover:text-yellow-300" onClick={() => setIsOpen(false)}>Complaints</Link>
-          <Link to="/complaints/new" className="block hover:text-yellow-300" onClick={() => setIsOpen(false)}>Add Complaint</Link>
-          <Link to="/CashFlow" className="block hover:text-yellow-300" onClick={() => setIsOpen(false)}>CashFlow</Link>
-          <Link to="/billform" className="block hover:text-yellow-300" onClick={() => setIsOpen(false)}>Bill Form</Link>
-          <LogoutButton />
+       <div className="md:hidden px-6 pb-6 space-y-4 text-base font-medium">
+          <Link to="/add-customer" className="block py-2 hover:text-yellow-300">Add Customer</Link>
+          <Link to="/customers" className="block py-2 hover:text-yellow-300">Customer List</Link>
+          <Link to="/stock" className="block py-2 hover:text-yellow-300">Stock</Link>
+          <Link to="/complaints" className="block py-2 hover:text-yellow-300">Complaints</Link>
+          <Link to="/complaints/new" className="block py-2 hover:text-yellow-300">Add Complaint</Link>
+          <Link to="/CashFlow" className="block py-2 hover:text-yellow-300">CashFlow</Link>
+          <Link to="/billform" className="block py-2 hover:text-yellow-300">Bill Form</Link>
+          <div className="pt-2">
+            <LogoutButton />
+          </div>
         </div>
       )}
     </nav>

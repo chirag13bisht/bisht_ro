@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { exportToExcel } from '../utils/exportTOExcel';
 import { Link } from 'react-router-dom';
-import { Trash2 } from 'lucide-react'; // Optional: You can use any icon here
+import { Trash2, Pencil } from 'lucide-react';
+import EditCustomerModal from '../components/EditCustomerModal'; // Make sure it's implemented
 
 export default function Amclist() {
   const [customers, setCustomers] = useState([]);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingCustomer, setEditingCustomer] = useState(null);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -35,27 +37,70 @@ export default function Amclist() {
   }, []);
 
   const handleDelete = async (id) => {
-  const confirmDelete = window.confirm("Are you sure you want to delete this AMC?");
-  if (!confirmDelete) return;
+    const confirmDelete = window.confirm("Are you sure you want to delete this AMC?");
+    if (!confirmDelete) return;
 
+    try {
+      const customer = customers.find(c => c.id === id);
+      if (!customer) return;
+
+      await deleteDoc(doc(db, 'customers', id));
+
+      if (customer.cashflowId) {
+        await deleteDoc(doc(db, 'cashflow', customer.cashflowId));
+      }
+
+      setCustomers(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      console.error('Error deleting AMC and related cashflow:', err);
+    }
+  };
+
+  const handleSave = async (id, updatedData) => {
   try {
-    // 1. Get the customer details first
+    const customerRef = doc(db, 'customers', id);
+
+    // Convert charge and quantity to numbers
+    const updatedCharge = Number(updatedData.charge);
+    const updatedQuantity = Number(updatedData.quantity || 1);
+
+    const finalData = {
+      ...updatedData,
+      charge: updatedCharge,
+      quantity: updatedQuantity,
+    };
+
+    // 1. Update customer document
+    await updateDoc(customerRef, finalData);
+    console.log('✅ Customer updated');
+
+    // 2. Update local state
+    setCustomers(prev =>
+      prev.map(c => (c.id === id ? { ...c, ...finalData } : c))
+    );
+
+    // 3. Update corresponding cashflow document (if any)
     const customer = customers.find(c => c.id === id);
-    if (!customer) return;
+    if (customer?.cashflowId) {
+      const cashflowRef = doc(db, 'cashflow', customer.cashflowId);
+      const amount = updatedCharge * updatedQuantity;
 
-    // 2. Delete customer document
-    await deleteDoc(doc(db, 'customers', id));
+      await updateDoc(cashflowRef, {
+        amount,
+        remarks: finalData.remarks || '',
+        updatedAt: new Date(),
+      });
 
-    // 3. If customer has a cashflowId, delete that cashflow entry
-    if (customer.cashflowId) {
-      await deleteDoc(doc(db, 'cashflow', customer.cashflowId));
+      console.log('✅ Cashflow updated');
+    } else {
+      console.warn('⚠️ No cashflowId found for customer');
     }
 
-    // 4. Update local state
-    setCustomers(prev => prev.filter(c => c.id !== id));
-
+    // 4. Close modal
+    setEditingCustomer(null);
   } catch (err) {
-    console.error('Error deleting AMC and related cashflow:', err);
+    console.error('❌ Error updating customer or cashflow:', err);
+    alert('Failed to update. See console for error.');
   }
 };
 
@@ -77,7 +122,7 @@ export default function Amclist() {
     <div className="max-w-6xl mx-auto px-4 py-10">
       <h2 className="text-3xl font-bold text-center text-blue-700 mb-6">📋 Customer List</h2>
 
-      {/* Search, Filters, and Export */}
+      {/* Filters & Export */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
         <input
           type="text"
@@ -93,9 +138,9 @@ export default function Amclist() {
               key={f}
               onClick={() => setFilter(f)}
               className={`px-4 py-1 rounded border font-semibold transition ${filter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 hover:bg-gray-200'
-                }`}
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 hover:bg-gray-200'
+              }`}
             >
               {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
@@ -120,16 +165,22 @@ export default function Amclist() {
             return (
               <div
                 key={customer.id}
-                className={`relative p-5 bg-white shadow-lg rounded-lg border hover:shadow-xl transition ${amcStatus ? 'border-green-300' : 'border-red-300'
-                  }`}
+                className={`relative p-5 bg-white shadow-lg rounded-lg border hover:shadow-xl transition ${amcStatus ? 'border-green-300' : 'border-red-300'}`}
               >
-                {/* Delete icon */}
                 <button
                   onClick={() => handleDelete(customer.id)}
                   className="absolute top-2 right-2 text-red-500 hover:text-red-700"
                   title="Delete AMC"
                 >
                   <Trash2 size={18} />
+                </button>
+
+                <button
+                  onClick={() => setEditingCustomer(customer)}
+                  className="absolute top-2 left-2 text-blue-500 hover:text-blue-700"
+                  title="Edit Customer"
+                >
+                  <Pencil size={18} />
                 </button>
 
                 <Link to={`/customer/${customer.id}`}>
@@ -140,11 +191,9 @@ export default function Amclist() {
                     <strong>Charge:</strong> ₹
                     {customer.quantity ? customer.charge * customer.quantity : customer.charge}
                   </p>
-
                   <p className="text-sm text-gray-700">
                     <strong>AMC:</strong> {customer.amcStart || '—'} → {customer.amcEnd || '—'}
-                    <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded ${amcStatus ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                      }`}>
+                    <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded ${amcStatus ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {amcStatus ? 'Active' : 'AMC Over'}
                     </span>
                   </p>
@@ -154,6 +203,15 @@ export default function Amclist() {
             );
           })}
         </div>
+      )}
+
+      {/* 🔁 Modal — Renders just once */}
+      {editingCustomer && (
+        <EditCustomerModal
+          customer={editingCustomer}
+          onClose={() => setEditingCustomer(null)}
+          onSave={handleSave}
+        />
       )}
     </div>
   );

@@ -1,5 +1,6 @@
+// src/pages/StockDetail.jsx
 import { useEffect, useState } from 'react';
-import { doc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useParams } from 'react-router-dom';
 import { generateBillPDF } from '../utils/generateBillPDF';
@@ -12,6 +13,10 @@ export default function StockDetail() {
   const [relatedComplaints, setRelatedComplaints] = useState([]);
   const [relatedTransactions, setRelatedTransactions] = useState([]);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+
+  const [renaming, setRenaming] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [adjustQty, setAdjustQty] = useState('');
 
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceData, setInvoiceData] = useState({
@@ -53,6 +58,73 @@ export default function StockDetail() {
 
     fetchItemAndDetails();
   }, [itemId]);
+
+  const handleRename = async () => {
+    if (!newName.trim() || newName === item.name) return;
+
+    try {
+      const stockRef = doc(db, 'stock', item.id);
+      await updateDoc(stockRef, { name: newName });
+
+      const complaintSnap = await getDocs(collection(db, 'complaints'));
+      const updates = complaintSnap.docs.map(async docSnap => {
+        const data = docSnap.data();
+        if (data.itemsUsed?.toLowerCase().includes(item.name.toLowerCase())) {
+          const updatedItemsUsed = data.itemsUsed.replace(
+            new RegExp(item.name, 'gi'),
+            newName
+          );
+          await updateDoc(doc(db, 'complaints', docSnap.id), {
+            itemsUsed: updatedItemsUsed
+          });
+        }
+      });
+
+      const cashSnap = await getDocs(collection(db, 'cashflow'));
+      const cashUpdates = cashSnap.docs.map(async docSnap => {
+        const data = docSnap.data();
+        if (data.itemName?.toLowerCase() === item.name.toLowerCase()) {
+          await updateDoc(doc(db, 'cashflow', docSnap.id), {
+            itemName: newName
+          });
+        }
+      });
+
+      await Promise.all([...updates, ...cashUpdates]);
+      setItem(prev => ({ ...prev, name: newName }));
+      setRenaming(false);
+      alert('✅ Stock renamed successfully!');
+    } catch (err) {
+      console.error('Rename failed:', err);
+      alert('❌ Error renaming stock.');
+    }
+  };
+
+  const updateQuantity = async (change) => {
+    const changeAmount = parseInt(adjustQty);
+    if (isNaN(changeAmount) || changeAmount < 1) {
+      alert('Enter a valid quantity.');
+      return;
+    }
+
+    const newQty = item.quantity + change * changeAmount;
+    if (newQty < 0) {
+      alert('Cannot have negative stock!');
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'stock', itemId), {
+        quantity: newQty,
+        lastUpdated: serverTimestamp(),
+      });
+      setItem({ ...item, quantity: newQty });
+      setAdjustQty('');
+      alert('Quantity updated!');
+    } catch (err) {
+      console.error('Error updating quantity:', err);
+    }
+  };
 
   const handleGenerateBill = (tx) => {
     if (!tx.name || !tx.address || !tx.phone || !tx.invoice_no || !tx.description || tx.discount === undefined) {
@@ -124,17 +196,42 @@ export default function StockDetail() {
         </div>
       </div>
 
-      {/* Complaints Table */}
+      {/* Rename + Quantity Update */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        {/* Rename */}
+        <div className="bg-yellow-50 p-4 rounded shadow">
+          <h3 className="font-semibold mb-2">✏️ Rename Stock</h3>
+          {!renaming ? (
+            <button onClick={() => { setNewName(item.name); setRenaming(true); }} className="bg-yellow-500 text-white px-4 py-2 rounded w-full">Rename</button>
+          ) : (
+            <>
+              <input type="text" value={newName} onChange={e => setNewName(e.target.value)} className="border p-2 w-full rounded mb-2" />
+              <div className="flex gap-2">
+                <button onClick={handleRename} className="bg-green-600 text-white px-4 py-2 rounded w-full">Save</button>
+                <button onClick={() => setRenaming(false)} className="bg-gray-400 text-white px-4 py-2 rounded w-full">Cancel</button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Update Qty */}
+        <div className="bg-indigo-50 p-4 rounded shadow">
+          <h3 className="font-semibold mb-2">📦 Update Quantity</h3>
+          <input type="number" placeholder="Enter quantity" value={adjustQty} onChange={(e) => setAdjustQty(e.target.value)} className="border p-2 w-full rounded mb-2" />
+          <div className="flex gap-2">
+            <button onClick={() => updateQuantity(1)} className="bg-green-600 text-white px-4 py-2 rounded w-full">➕ Add</button>
+            <button onClick={() => updateQuantity(-1)} className="bg-red-600 text-white px-4 py-2 rounded w-full">➖ Remove</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Complaints */}
       <section>
         <h3 className="text-xl font-semibold mb-2">🔧 Used in Complaints</h3>
         {paginatedComplaints.length === 0 ? <p>No related complaints.</p> : (
           <>
             <table className="w-full border text-sm text-center bg-white">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th>Customer</th><th>Issue</th><th>Date</th><th>Status</th>
-                </tr>
-              </thead>
+              <thead className="bg-gray-200"><tr><th>Customer</th><th>Issue</th><th>Date</th><th>Status</th></tr></thead>
               <tbody>
                 {paginatedComplaints.map(c => (
                   <tr key={c.id} className="border-t">
@@ -155,17 +252,13 @@ export default function StockDetail() {
         )}
       </section>
 
-      {/* Transactions Table */}
+      {/* Transactions */}
       <section>
-        <h3 className="text-xl font-semibold mb-2">📦 Transactions</h3>
+        <h3 className="text-xl font-semibold mb-2">💰 Transactions</h3>
         {paginatedTransactions.length === 0 ? <p>No transactions found.</p> : (
           <>
             <table className="w-full border text-sm text-center bg-white">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th>Date</th><th>Type</th><th>Category</th><th>Qty</th><th>Amount</th><th>Action</th>
-                </tr>
-              </thead>
+              <thead className="bg-gray-200"><tr><th>Date</th><th>Type</th><th>Category</th><th>Qty</th><th>Amount</th><th>Action</th></tr></thead>
               <tbody>
                 {paginatedTransactions.map(tx => (
                   <tr key={tx.id} className="border-t">
@@ -174,16 +267,7 @@ export default function StockDetail() {
                     <td>{tx.category}</td>
                     <td>{tx.quantity}</td>
                     <td>₹{tx.amount}</td>
-                    <td>
-                      {tx.type === 'credit' && (
-                        <button
-                          onClick={() => handleGenerateBill(tx)}
-                          className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
-                        >
-                          Generate Bill
-                        </button>
-                      )}
-                    </td>
+                    <td>{tx.type === 'credit' && <button onClick={() => handleGenerateBill(tx)} className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">Generate Bill</button>}</td>
                   </tr>
                 ))}
               </tbody>
