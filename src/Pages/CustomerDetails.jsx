@@ -165,11 +165,13 @@ const handleComplaintSave = async (complaintId, updatedData) => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex justify-between items-start mb-4">
-  <h2 className="text-3xl font-bold text-blue-800">👤 {customer.name}'s Profile</h2>
+      <div className=" flex justify-between items-center mb-4">
+  <h2 className="text-xl sm:text-3xl font-bold text-blue-800 truncate">
+    👤 {customer.name}'s Profile
+  </h2>
   <button
     onClick={generateInvoice}
-    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+    className="bg-green-600 text-white text-sm sm:text-base px-3 py-1 sm:px-4 sm:py-2 rounded hover:bg-green-700"
   >
     Generate Bill
   </button>
@@ -189,66 +191,99 @@ const handleComplaintSave = async (complaintId, updatedData) => {
       </div>
 
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-2xl font-semibold">📝 Complaints Log</h3>
-        <button onClick={handleExport} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+        <h3 className="text-xl sm:text-2xl font-semibold">📝 Complaints Log</h3>
+        <button onClick={handleExport} className="bg-green-600 text-white text-sm sm:text-base px-3 py-1 sm:px-4 sm:py-2 rounded hover:bg-green-700">
           Export to Excel
         </button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-4">
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border p-2 rounded">
-          <option value="">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="completed">Completed</option>
-        </select>
-        <input type="date" onChange={e => setDateFilter(e.target.value)} className="border p-2 rounded" />
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="border p-2 rounded">
-          <option value="dateReported">Sort by Date</option>
-          <option value="status">Sort by Status</option>
-        </select>
-        <select value={sortOrder} onChange={e => setSortOrder(e.target.value)} className="border p-2 rounded">
-          <option value="desc">Descending</option>
-          <option value="asc">Ascending</option>
-        </select>
-      </div>
+      {/* Filters */}
+<div className="flex flex-nowrap gap-2 mb-4 overflow-x-auto">
+  <select
+    value={statusFilter}
+    onChange={e => setStatusFilter(e.target.value)}
+    className="border p-1 sm:p-2 rounded text-xs sm:text-sm min-w-0"
+  >
+    <option value="">All Status</option>
+    <option value="pending">Pending</option>
+    <option value="completed">Completed</option>
+  </select>
+
+  <input
+    type="date"
+    onChange={e => setDateFilter(e.target.value)}
+    className="border p-1 sm:p-2 rounded text-xs sm:text-sm min-w-0"
+  />
+
+  <select
+    value={sortBy}
+    onChange={e => setSortBy(e.target.value)}
+    className="border p-1 sm:p-2 rounded text-xs sm:text-sm min-w-0"
+  >
+    <option value="dateReported">Sort by Date</option>
+    <option value="status">Sort by Status</option>
+  </select>
+
+  <select
+    value={sortOrder}
+    onChange={e => setSortOrder(e.target.value)}
+    className="border p-1 sm:p-2 rounded text-xs sm:text-sm min-w-0"
+  >
+    <option value="desc">Descending</option>
+    <option value="asc">Ascending</option>
+  </select>
+</div>
+
 
       {/* Complaints Table */}
-      <div className="overflow-auto">
-        <table className="w-full table-auto border text-sm bg-white shadow">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="px-4 py-2">Issue</th>
-              <th className="px-4 py-2">Date Reported</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2">Completed On</th>
-              <th className="px-4 py-2">Items Used</th>
-              <th className="px-4 py-2">Amount</th>
-              <th className="px-4 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentComplaints.length === 0 ? (
-              <tr>
-                <td colSpan="7" className="text-center p-4 text-gray-500">No complaints found.</td>
-              </tr>
-            ) : currentComplaints.map(c => (
-              <tr key={c.id} className="border-t">
-                <td className="px-4 py-2">{c.issue}</td>
-                <td className="px-4 py-2">{new Date(c.dateReported.seconds * 1000).toLocaleDateString()}</td>
-                <td className={`px-4 py-2 ${c.status === 'completed' ? 'text-green-600' : 'text-red-600'}`}>{c.status}</td>
-                <td className="px-4 py-2">{c.completedDate ? new Date(c.completedDate.seconds * 1000).toLocaleDateString() : '—'}</td>
-                <td className="px-4 py-2">{c.itemsUsed || '—'}</td>
-                <td className="px-4 py-2">{c.amountReceived || '—'}</td>
-                <td className="px-4 py-2 space-x-2">
-                  <button  onClick={() => setEditingComplaint(c)} className="bg-yellow-400 px-2 py-1 rounded">Edit</button>
-                  <button onClick={() => handleDelete(c.id)} className="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <div className="overflow-x-auto">
+  <table className="min-w-full border-collapse border text-sm sm:text-base bg-white shadow">
+    <thead className="bg-gray-200">
+      <tr>
+        <th className="px-4 py-2 border">Issue</th>
+        <th className="px-4 py-2 border">Date Reported</th>
+        <th className="px-4 py-2 border">Status</th>
+        <th className="px-4 py-2 border">Completed On</th>
+        <th className="px-4 py-2 border">Items Used</th>
+        <th className="px-4 py-2 border">Amount</th>
+        <th className="px-4 py-2 border">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {currentComplaints.length === 0 ? (
+        <tr>
+          <td colSpan="7" className="text-center p-4 text-gray-500">No complaints found.</td>
+        </tr>
+      ) : currentComplaints.map(c => (
+        <tr key={c.id} className="border-t">
+          <td className="px-4 py-2 border">{c.issue}</td>
+          <td className="px-4 py-2 border">{new Date(c.dateReported.seconds * 1000).toLocaleDateString()}</td>
+          <td className={`px-4 py-2 border ${c.status === 'completed' ? 'text-green-600' : 'text-red-600'}`}>{c.status}</td>
+          <td className="px-4 py-2 border">{c.completedDate ? new Date(c.completedDate.seconds * 1000).toLocaleDateString() : '—'}</td>
+          <td className="px-4 py-2 border">{c.itemsUsed || '—'}</td>
+          <td className="px-4 py-2 border">{c.amountReceived || '—'}</td>
+          <td className="px-4 py-2 border">
+  <div className="flex gap-2 justify-center">
+    <button
+      onClick={() => setEditingComplaint(c)}
+      className="bg-yellow-400 hover:bg-yellow-500 text-black text-sm px-3 py-1 rounded shadow"
+    >
+      Edit
+    </button>
+    <button
+      onClick={() => handleDelete(c.id)}
+      className="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded shadow"
+    >
+      Delete
+    </button>
+  </div>
+</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
 
       {/* Pagination */}
       {totalPages > 1 && (

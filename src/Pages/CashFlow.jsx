@@ -1,5 +1,5 @@
 // Add this to top imports
-import { useMemo } from 'react';
+import React,{ useMemo } from 'react';
 import { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -276,19 +276,65 @@ export default function CashflowPage() {
       </div>
 
       {/* Pagination */}
-      {pageCount > 1 && (
-        <div className="flex justify-center mt-6 gap-2">
-          {Array.from({ length: pageCount }, (_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setPage(idx + 1)}
-              className={`px-3 py-1 rounded ${page === idx + 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-            >
-              {idx + 1}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Pagination */}
+{/* Pagination */}
+{pageCount > 1 && (
+  <div className="flex flex-wrap justify-center mt-6 gap-2">
+    {/* Previous button */}
+    <button
+      onClick={() => setPage((p) => Math.max(p - 1, 1))}
+      disabled={page === 1}
+      className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded text-sm sm:text-base ${
+        page === 1
+          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          : 'bg-gray-200 hover:bg-gray-300'
+      }`}
+    >
+      Previous
+    </button>
+
+    {/* Page numbers (only a range around current page) */}
+    {Array.from({ length: pageCount }, (_, idx) => idx + 1)
+      .filter(
+        (num) =>
+          num === 1 || // always show first
+          num === pageCount || // always show last
+          (num >= page - 1 && num <= page + 1) // show current, one before, one after
+      )
+      .map((num, i, arr) => (
+        <React.Fragment key={num}>
+          {/* Ellipsis for skipped pages */}
+          {i > 0 && arr[i] - arr[i - 1] > 1 && <span>...</span>}
+
+          <button
+            onClick={() => setPage(num)}
+            className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded text-sm sm:text-base ${
+              page === num
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 hover:bg-gray-300'
+            }`}
+          >
+            {num}
+          </button>
+        </React.Fragment>
+      ))}
+
+    {/* Next button */}
+    <button
+      onClick={() => setPage((p) => Math.min(p + 1, pageCount))}
+      disabled={page === pageCount}
+      className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded text-sm sm:text-base ${
+        page === pageCount
+          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          : 'bg-gray-200 hover:bg-gray-300'
+      }`}
+    >
+      Next
+    </button>
+  </div>
+)}
+
+
     </div>
   );
 }
