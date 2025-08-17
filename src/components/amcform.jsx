@@ -46,21 +46,40 @@ export default function Amcform() {
   const handleSubmit = async (e) => {
   e.preventDefault();
   try {
+    const totalAmount = Number(formData.charge) * (Number(formData.quantity) || 1);
+    const paidAmount = Number(formData.paidAmount) || 0;
+    const pendingAmount = totalAmount - paidAmount;
     // Step 1: Add cashflow entry first
     const cashflowDoc = await addDoc(collection(db, 'cashflow'), {
       type: 'credit',
       category: 'amc',
-      amount: Number(formData.charge) * (Number(formData.quantity) || 1),
+      amount: paidAmount,
       description: `AMC Charge from ${formData.name}`,
       date: new Date(formData.amcStart),
       quantity: Number(formData.quantity) || 1,
     });
 
     // Step 2: Add customer with reference to cashflow ID
-    await addDoc(collection(db, 'customers'), {
+     await addDoc(collection(db, 'customers'), {
       ...formData,
+      totalAmount,
+      paidAmount,
+      pendingAmount,
       cashflowId: cashflowDoc.id
     });
+
+    if (pendingAmount > 0) {
+      await addDoc(collection(db, 'pendingLedger'), {
+        name: formData.name,
+        phone: formData.phone,
+        type: 'amc',
+        totalAmount,
+        paidAmount,
+        pendingAmount,
+        date: new Date(formData.amcStart),
+        cashflowId: cashflowDoc.id
+      });
+    }
 
     alert('✅ Customer added!');
     setFormData({
@@ -68,6 +87,7 @@ export default function Amcform() {
       phone: '',
       address: '',
       charge: '',
+      paidAmount: '',
       amcStart: '',
       amcEnd: '',
       remarks: '',
@@ -135,6 +155,19 @@ export default function Amcform() {
             className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-400"
           />
         </div>
+
+        <div>
+  <label className="text-sm text-gray-700 font-medium">Paid Amount (₹)</label>
+  <input
+    type="number"
+    name="paidAmount"
+    value={formData.paidAmount || ''}
+    onChange={handleChange}
+    placeholder="Amount received now"
+    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-400"
+    required
+  />
+</div>
 
         <div>
           <label className="text-sm text-gray-700 font-medium">AMC Start Date</label>

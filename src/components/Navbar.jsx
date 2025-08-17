@@ -33,6 +33,8 @@ export default function Navbar() {
           <Link to="/complaints/new" className="hover:text-yellow-300 transition">Add Complaint</Link>
           <Link to="/CashFlow" className="hover:text-yellow-300 transition">CashFlow</Link>
           <Link to="/billform" className="hover:text-yellow-300 transition">Bill Form</Link>
+          <Link to="/ledger" className="hover:text-yellow-300 transition">Ledger</Link>
+          <Link to="/Booklet" className="hover:text-yellow-300 transition">Booklet</Link>
           <LogoutButton />
         </div>
 
@@ -56,6 +58,7 @@ export default function Navbar() {
           <Link to="/complaints/new" className="block py-2 hover:text-yellow-300"onClick={() => setIsOpen(false)}>Add Complaint</Link>
           <Link to="/CashFlow" className="block py-2 hover:text-yellow-300"onClick={() => setIsOpen(false)}>CashFlow</Link>
           <Link to="/billform" className="block py-2 hover:text-yellow-300"onClick={() => setIsOpen(false)}>Bill Form</Link>
+          <Link to="/Booklet" className="block py-2 hover:text-yellow-300"onClick={() => setIsOpen(false)}>Booklet</Link>
           <div className="pt-2">
             <LogoutButton />
           </div>

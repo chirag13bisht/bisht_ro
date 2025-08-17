@@ -159,24 +159,43 @@ export default function StockDetail() {
     });
   };
 
-  const saveInvoiceFieldsAndGenerate = async () => {
-    try {
-      const txRef = doc(db, 'cashflow', selectedTransaction.id);
-      await updateDoc(txRef, {
-        name: invoiceData.name,
-        address: invoiceData.address,
-        phone: invoiceData.phone,
-        invoice_no: invoiceData.invoice_no,
-        description: invoiceData.description,
-        discount: Number(invoiceData.discount),
-      });
+ const saveInvoiceFieldsAndGenerate = async () => {
+  try {
+    // Merge existing values with invoiceData to avoid overwriting with empty
+    const mergedData = {
+      name: invoiceData.name || selectedTransaction.name || '',
+      address: invoiceData.address || selectedTransaction.address || '',
+      phone: invoiceData.phone || selectedTransaction.phone || '',
+      invoice_no: invoiceData.invoice_no || selectedTransaction.invoice_no || '',
+      description: invoiceData.description || selectedTransaction.description || '',
+      discount: invoiceData.discount !== undefined ? Number(invoiceData.discount) : Number(selectedTransaction.discount || 0),
+    };
 
-      setInvoiceDialogOpen(false);
-      generateBill({ ...selectedTransaction, ...invoiceData });
-    } catch (error) {
-      console.error('Error saving invoice fields:', error);
+    // Update in cashflow
+    const txRef = doc(db, 'cashflow', selectedTransaction.id);
+    await updateDoc(txRef, mergedData);
+
+    // Add to invoices collection only if not already exists
+    const invoicesRef = collection(db, 'invoices');
+    const q = query(invoicesRef, where('invoice_no', '==', mergedData.invoice_no));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      await addDoc(invoicesRef, {
+        ...mergedData,
+        referenceId: selectedTransaction.id,
+        date: new Date(),
+      });
     }
-  };
+
+    setInvoiceDialogOpen(false);
+    generateBill({ ...selectedTransaction, ...mergedData });
+  } catch (error) {
+    console.error('Error saving invoice fields:', error);
+  }
+};
+
+
 
   if (!item) return <p className="p-4 text-center text-gray-500">Loading item details...</p>;
 

@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
   doc, getDoc, collection, query,
-  where, getDocs, deleteDoc, updateDoc
+  where, getDocs, deleteDoc, updateDoc, addDoc
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { exportToExcel } from '../utils/exportTOExcel'; // make sure this exists
@@ -108,7 +108,6 @@ export default function CustomerDetails() {
   if ( customer.description === undefined || customer.description === null || customer.description === '' ||
     customer.discount === undefined || customer.discount === null || customer.discount === '' ||
     customer.invoice_no === undefined || customer.invoice_no === null || customer.invoice_no === '') {
-    console.log(customer.description, customer.discount)
     setInvoiceDialogOpen(true);
   } else {
     saveInvoiceFieldsAndGenerate();
@@ -116,38 +115,64 @@ export default function CustomerDetails() {
 };
 
 
-  const saveInvoiceFieldsAndGenerate = async () => {
+const saveInvoiceFieldsAndGenerate = async () => {
   try {
-    // Update only the 3 invoice fields in the customer's Firestore document
     const customerRef = doc(db, 'customers', customer.id);
-    await updateDoc(customerRef, {
-      invoice_no: invoiceData.invoice_no,
-      description: invoiceData.description,
-      discount: Number(invoiceData.discount),
-    });
+
+    // Prepare the updated fields only if they have values
+    const updatedFields = {
+      invoice_no: invoiceData.invoice_no || customer.invoice_no,
+      description: invoiceData.description || customer.description,
+      discount:
+        invoiceData.discount !== undefined && invoiceData.discount !== ''
+          ? Number(invoiceData.discount)
+          : Number(customer.discount) || 0,
+    };
+
+    // Update Firestore only if modal data was provided or it’s a new entry
+    await updateDoc(customerRef, updatedFields);
+
+    // Store invoice entry in invoices collection
+   const invoicesRef = collection(db, "invoices");
+const q = query(invoicesRef, where("invoice_no", "==", customer.invoice_no));
+const snapshot = await getDocs(q);
+
+if (snapshot.empty) {
+  // Only add if not exists
+  await addDoc(invoicesRef, {
+    invoice_no: customer.invoice_no,
+    name: customer.name,
+    phone: customer.phone,
+    address: customer.address,
+    date: new Date(),
+    amount: customer.charge || 0,
+  });
+}
 
     setInvoiceDialogOpen(false);
 
-    // Now generate the bill
+    // Generate the bill using the merged data
     await generateAmcBill({
-  name: customer.name,
-  address: customer.address,
-  phone: customer.phone,
-  invoice_no: invoiceData.invoice_no || customer.invoice_no || '',
-  date: customer.amcStart,
-  discount: invoiceData.discount !== undefined && invoiceData.discount !== '' 
-    ? Number(invoiceData.discount) 
-    : Number(customer.discount) || 0,
-  items: [{
-    description: invoiceData.description || customer.description || '',
-    qty: customer.quantity > 0 ? customer.quantity : 1,
-    rate: customer.charge,
-  }],
-});
+      name: customer.name,
+      address: customer.address,
+      phone: customer.phone,
+      invoice_no: updatedFields.invoice_no,
+      date: customer.amcStart,
+      discount: updatedFields.discount,
+      items: [
+        {
+          description: updatedFields.description,
+          qty: customer.quantity > 0 ? customer.quantity : 1,
+          rate: customer.charge,
+        },
+      ],
+    });
   } catch (error) {
     console.error('Error saving invoice fields:', error);
   }
 };
+
+
 const handleComplaintSave = async (complaintId, updatedData) => {
   const complaintRef = doc(db, 'complaints', complaintId);
   await updateDoc(complaintRef, updatedData);
@@ -307,7 +332,7 @@ const handleComplaintSave = async (complaintId, updatedData) => {
               type="text"
               placeholder="Description"
               className="border p-2 w-full mb-2"
-              value={invoiceData.description}
+              value={invoiceData.description || 'Ro AMC One Year Without Ro Body & 3-4 Service Within Years'}
               onChange={(e) => setInvoiceData({ ...invoiceData, description: e.target.value })}
             />
             <input

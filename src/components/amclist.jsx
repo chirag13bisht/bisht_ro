@@ -11,6 +11,7 @@ export default function Amclist() {
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingCustomer, setEditingCustomer] = useState(null);
+  const [sortBy, setSortBy] = useState('name');
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -105,7 +106,10 @@ export default function Amclist() {
 };
 
 
-  const filteredCustomers = customers.filter(c => {
+
+
+  const filteredCustomers = customers
+  .filter(c => {
     const matchesFilter =
       filter === 'all' ||
       (filter === 'active' && c.isAmcActive) ||
@@ -116,44 +120,96 @@ export default function Amclist() {
       c.address.toLowerCase().includes(searchTerm.toLowerCase());
 
     return matchesFilter && matchesSearch;
-  });
+  })
+  .sort((a, b) => {
+  if (sortBy === 'name') {
+    return a.name.localeCompare(b.name); // alphabetical
+  }
+  if (sortBy === 'endDateLatest') {
+    const dateA = a.amcEnd ? new Date(a.amcEnd) : new Date(0);
+    const dateB = b.amcEnd ? new Date(b.amcEnd) : new Date(0);
+    return dateB - dateA; // latest AMC end date first
+  }
+  if (sortBy === 'endDateOldest') {
+    const dateA = a.amcEnd ? new Date(a.amcEnd) : new Date(0);
+    const dateB = b.amcEnd ? new Date(b.amcEnd) : new Date(0);
+    return dateA - dateB; // oldest AMC end date first
+  }
+  if (sortBy === 'startDateLatest') {
+    const dateA = a.amcStart ? new Date(a.amcStart) : new Date(0);
+    const dateB = b.amcStart ? new Date(b.amcStart) : new Date(0);
+    return dateB - dateA; // latest AMC start date first
+  }
+  if (sortBy === 'startDateOldest') {
+    const dateA = a.amcStart ? new Date(a.amcStart) : new Date(0);
+    const dateB = b.amcStart ? new Date(b.amcStart) : new Date(0);
+    return dateA - dateB; // oldest AMC start date first
+  }
+  return 0;
+});
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
       <h2 className="text-3xl font-bold text-center text-blue-700 mb-6">📋 Customer List</h2>
 
       {/* Filters & Export */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-        <input
-          type="text"
-          placeholder="🔍 Search by name or address"
-          className="w-full sm:w-1/3 p-2 border rounded"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      {/* Filters & Export */}
+<div className="bg-white shadow-md rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  {/* 🔍 Search */}
+  <div className="flex-1">
+    <input
+      type="text"
+      placeholder="🔍 Search by name or address"
+      className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+    />
+  </div>
 
-        <div className="flex gap-2">
-          {['all', 'active', 'expired'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-1 rounded border font-semibold transition ${filter === f
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 hover:bg-gray-200'
-              }`}
-            >
-              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
+  {/* 📊 Filter Buttons */}
+  <div className="flex gap-2 justify-center">
+    {['all', 'active', 'expired'].map(f => (
+      <button
+        key={f}
+        onClick={() => setFilter(f)}
+        className={`px-4 py-1 rounded-lg font-medium transition text-sm ${
+          filter === f
+            ? 'bg-blue-600 text-white shadow-md'
+            : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+        }`}
+      >
+        {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+      </button>
+    ))}
+  </div>
 
-        <button
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 whitespace-nowrap"
-          onClick={() => exportToExcel(customers, 'Customer_List')}
-        >
-          📥 Export Customers
-        </button>
-      </div>
+  {/* 📅 Sort Dropdown */}
+  <div className="flex justify-center items-center gap-2">
+    <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Sort by:</label>
+    <select
+      className="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"
+      value={sortBy}
+      onChange={(e) => setSortBy(e.target.value)}
+    >
+      <option value="name">Name (A–Z)</option>
+      <option value="endDateLatest">AMC End Date (Latest First)</option>
+      <option value="endDateOldest">AMC End Date (Oldest First)</option>
+      <option value="startDateLatest">AMC Start Date (Latest First)</option>
+      <option value="startDateOldest">AMC Start Date (Oldest First)</option>
+    </select>
+  </div>
+
+  {/* 📥 Export Button */}
+  <div className="flex justify-center">
+    <button
+      className="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition text-sm"
+      onClick={() => exportToExcel(customers, 'Customer_List')}
+    >
+      📥 Export
+    </button>
+  </div>
+</div>
+
 
       {/* Customer Cards */}
       {filteredCustomers.length === 0 ? (

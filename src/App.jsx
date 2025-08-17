@@ -21,6 +21,9 @@ import ResetPassword from './Pages/ResetPassword';
 import DashboardPage from './Pages/Dashboard';
 import CustomerDetails from './Pages/CustomerDetails';
 import BillForm from './components/BillForm'
+import PendingLedgerPage from './Pages/PendingLedgerPage';
+import BookletPage from './Pages/BookletPage';
+
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null); // null = loading
@@ -49,6 +52,7 @@ function App() {
 
         {/* Protected Routes */}
         <Route path="/dashboard" element={<ProtectedRoute element={<DashboardPage />} />} />
+        <Route path="/ledger" element={<ProtectedRoute element={<PendingLedgerPage />} />} />
         <Route path="/billform" element={<ProtectedRoute element={<BillForm />} />} />
         <Route path="/add-customer" element={<ProtectedRoute element={<Amcform />} />} />
         <Route path="/customers" element={<ProtectedRoute element={<Amclist />} />} />
@@ -62,6 +66,8 @@ function App() {
         <Route path="/complaints/new" element={<ProtectedRoute element={<ComplaintForm />} />} />
         <Route path="/complaints/update/:id" element={<ProtectedRoute element={<UpdateComplaint />} />} />
         <Route path="/CashFlow" element={<ProtectedRoute element={<CashFlow />} />} />
+        <Route path="/Booklet" element={<ProtectedRoute element={<BookletPage />} />} />
+
 
         <Route path="*" element={<Navigate to={isLoggedIn ? '/dashboard' : '/login'} />} />
       </Routes>
