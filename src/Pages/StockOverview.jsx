@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react';
 import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useNavigate } from 'react-router-dom';
-import { Plus, AlertTriangle, Trash2 } from 'lucide-react'; // Trash icon
+import { Plus, AlertTriangle, Trash2, Search } from 'lucide-react'; // Added Search icon
 
 export default function StockOverview() {
   const [items, setItems] = useState([]);
+  const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,12 +31,41 @@ export default function StockOverview() {
     setItems(prev => prev.filter(item => item.id !== id));
   };
 
+  // Filtered items by search term
+  const filteredItems = items.filter(item =>
+    item.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="p-4 sm:p-6 md:p-8">
-      <h2 className="text-3xl font-bold text-center text-blue-700 mb-8">📦 Stock Overview</h2>
+      <h2 className="text-3xl font-bold text-center text-blue-700 mb-6">📦 Stock Overview</h2>
 
+      {/* Search Bar */}
+      <div className="flex items-center justify-center mb-6">
+        <div className="relative w-full sm:w-1/2">
+          <input
+            type="text"
+            placeholder="Search item..."
+            className="w-full border rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+        </div>
+      </div>
+
+      {/* Items Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-        {items.map(item => {
+        {/* Add new item box */}
+        <div
+          onClick={() => navigate('/stock/add')}
+          className="bg-white border-2 border-dashed border-green-400 p-6 flex flex-col items-center justify-center rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-600 transition"
+        >
+          <Plus size={36} className="text-green-500 mb-2" />
+          <p className="text-green-700 font-medium">Add Item</p>
+        </div>
+
+        {filteredItems.map(item => {
           const isLowStock = item.quantity < 5;
 
           return (
@@ -70,15 +100,6 @@ export default function StockOverview() {
             </div>
           );
         })}
-
-        {/* Add new item box */}
-        <div
-          onClick={() => navigate('/stock/add')}
-          className="bg-white border-2 border-dashed border-green-400 p-6 flex flex-col items-center justify-center rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-600 transition"
-        >
-          <Plus size={36} className="text-green-500 mb-2" />
-          <p className="text-green-700 font-medium">Add Item</p>
-        </div>
       </div>
     </div>
   );

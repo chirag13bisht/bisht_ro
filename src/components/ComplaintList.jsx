@@ -11,16 +11,25 @@ export function ComplaintList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('all');
   const [editingComplaint, setEditingComplaint] = useState(null);
+  const [typeFilter, setTypeFilter] = useState('all'); // amc/paid
 
   useEffect(() => {
     fetchComplaints();
   }, []);
 
   const fetchComplaints = async () => {
-    const snapshot = await getDocs(collection(db, 'complaints'));
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    setComplaints(data);
-  };
+  const snapshot = await getDocs(collection(db, 'complaints'));
+  const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  // 🔹 Sort by dateReported (newest first)
+  const sorted = data.sort((a, b) => {
+    const dateA = a.dateReported?.seconds || 0;
+    const dateB = b.dateReported?.seconds || 0;
+    return dateB - dateA;
+  });
+
+  setComplaints(sorted);
+};
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this complaint?")) {
@@ -52,7 +61,10 @@ export function ComplaintList() {
       (filter === 'pending' && c.status === 'pending') ||
       (filter === 'completed' && c.status === 'completed');
 
-    return matchesSearch && matchesFilter;
+    const matchesType =
+      typeFilter === 'all' || c.type === typeFilter; // 🔹 type: 'amc' or 'paid'
+
+    return matchesSearch && matchesFilter && matchesType;
   });
 
   return (
@@ -60,38 +72,57 @@ export function ComplaintList() {
       <h2 className="text-3xl font-bold text-center text-blue-700 mb-6">🛠️ Complaint Dashboard</h2>
 
       {/* Search, Filter, Export */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-        <input
-          type="text"
-          placeholder="🔍 Search by name or address"
-          className="w-full sm:w-1/3 p-2 border rounded"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+<div className="bg-white shadow-md rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
-        <div className="flex gap-2">
-          {['all', 'pending', 'completed'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-1 rounded border font-semibold transition ${
-                filter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 hover:bg-gray-200'
-              }`}
-            >
-              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
+  {/* 🔍 Search */}
+  <input
+    type="text"
+    placeholder="🔍 Search by name or address"
+    className="w-full sm:w-60 p-2 border rounded-md text-sm"
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+  />
 
-        <button
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 whitespace-nowrap"
-          onClick={() => exportToExcel(filteredComplaints, 'Complaint_List')}
-        >
-          📥 Export Complaints
-        </button>
-      </div>
+  {/* Status Filter Buttons */}
+  <div className="flex gap-2">
+    {['all', 'pending', 'completed'].map(f => (
+      <button
+        key={f}
+        onClick={() => setFilter(f)}
+        className={`px-3 py-1 rounded-md border text-sm font-medium transition ${
+          filter === f
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-100 hover:bg-gray-200'
+        }`}
+      >
+        {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+      </button>
+    ))}
+  </div>
+
+  {/* Type Dropdown */}
+  <div className="flex items-center gap-2">
+    <label className="text-sm font-medium text-gray-700">Type:</label>
+    <select
+      value={typeFilter}
+      onChange={(e) => setTypeFilter(e.target.value)}
+      className="border rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+    >
+      <option value="all">All</option>
+      <option value="amc">AMC</option>
+      <option value="regular">Regular</option>
+    </select>
+  </div>
+
+  {/* Export Button (smaller) */}
+  <button
+    className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm whitespace-nowrap"
+    onClick={() => exportToExcel(filteredComplaints, 'Complaint_List')}
+  >
+    📥 Export
+  </button>
+</div>
+
 
       {/* Complaint Cards */}
       {filteredComplaints.length === 0 ? (

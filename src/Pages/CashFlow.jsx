@@ -21,6 +21,9 @@ export default function CashflowPage() {
   const [search, setSearch] = useState('');
   const [stockItems, setStockItems] = useState([]);
   const [page, setPage] = useState(1);
+  const [date, setDate]= useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
 
   useEffect(() => {
     fetchEntries();
@@ -70,32 +73,79 @@ export default function CashflowPage() {
             name: itemNameTrimmed,
             quantity: qty,
             pricePerUnit: Number(amount) / qty,
-            createdAt: new Date(),
+            createdAt: new Date(date),
           });
         }
       }
     }
+ 
 
-    await addDoc(collection(db, 'cashflow'), {
-      type,
-      category,
-      amount: Number(amount),
-      itemName: itemNameTrimmed,
-      quantity: qty,
-      description,
-      date: new Date(),
-      recordedBy: 'admin',
-    });
+  const calculateAmcEnd = (startDate) => {
+  const date = new Date(startDate);
+  date.setFullYear(date.getFullYear() + 1);
+  date.setDate(date.getDate() - 1); // Subtract 1 day
+  return date.toISOString().split('T')[0];
+  }
+    if (selectedItem?.type === "amc") {
+      // 1️⃣ Add customer first
+      const customerRef = await addDoc(collection(db, "customers"), {
+        name: formData.name,
+        phone: formData.phone,
+        address: formData.address,
+        amcStart: date,
+        amcEnd: calculateAmcEnd(date),
+        quantity: Number(formData.quantity) || 1,
+        amcItem: selectedItem.name,
+        charge: Number(amount),
+      });
 
-    setAmount('');
-    setCategory('sale');
-    setItemName('');
-    setQuantity('');
-    setDescription('');
-    setCustomType('credit');
-    fetchEntries();
-    fetchStock();
+      // 2️⃣ Add cashflow linked to customer
+      const cashflowRef = await addDoc(collection(db, "cashflow"), {
+        type: "credit",
+        category: "amc",
+        amount: Number(amount),
+        description: `AMC Charge from ${formData.name}`,
+        date: new Date(formData.amcStart || date),
+        quantity: Number(quantity) || 1,
+        customerId: customerRef.id,
+        recordedBy: "admin",
+      });
+
+      // 3️⃣ Update customer with cashflowId
+      await updateDoc(doc(db, "customers", customerRef.id), {
+        cashflowId: cashflowRef.id,
+      });
+    } else {
+      // Normal transaction
+      await addDoc(collection(db, "cashflow"), {
+        type,
+        category,
+        amount: Number(amount),
+        itemName: itemNameTrimmed,
+        quantity: Number(qty) || 1,
+        description,
+        date: new Date(date),
+        recordedBy: "admin",
+      });
+    }
+
+    // Reset form
+    setFormData({ name: "", phone: "", address: "", amcStart: "", quantity: "" });
+    setAmount("");
+    setItemName("");
+    setQuantity();
+    setDescription("");
+    setDate("");
+
   };
+
+  const handleItemChange = (value) => {
+  setItemName(value);
+
+  // find selected stock item
+  const item = stockItems.find((i) => i.name === value);
+  setSelectedItem(item || null);
+};
 
   // Filtered and Searched
   const filteredEntries = useMemo(() => {
@@ -185,12 +235,6 @@ export default function CashflowPage() {
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="flex justify-center mb-8">
-        <div className="w-44 h-44 sm:w-52 sm:h-52">
-          <Pie data={chartData} />
-        </div>
-      </div>
 
       {/* Add Transaction */}
       <div className="bg-white border rounded shadow p-6 mb-8">
@@ -216,7 +260,7 @@ export default function CashflowPage() {
                 className="border p-2 rounded"
                 placeholder="Item Name"
                 value={itemName}
-                onChange={e => setItemName(e.target.value)}
+                onChange={e => handleItemChange(e.target.value)}
                 list="item-suggestions"
               />
               <datalist id="item-suggestions">
@@ -235,7 +279,33 @@ export default function CashflowPage() {
           )}
 
           <input type="number" className="border p-2 rounded" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
-          <input type="text" className="border p-2 rounded" placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} />
+         {selectedItem?.type !== "amc" && (<input type="text" className="border p-2 rounded" placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} />)}
+          <input type="date" className="border p-2 rounded" placeholder="Deate" value={date} onChange={e => setDate(e.target.value)} />
+          {selectedItem?.type === "amc" && (
+  <>
+    <input
+      type="text"
+      placeholder="Customer Name"
+      value={formData.name}
+      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+      className="border p-2 rounded w-full"
+    />
+    <input
+      type="text"
+      placeholder="Phone"
+      value={formData.phone}
+      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+      className="border p-2 rounded w-full"
+    />
+    <input
+      type="text"
+      placeholder="Address"
+      value={formData.address}
+      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+      className="border p-2 rounded w-full"
+    />
+  </>
+)}
         </div>
         <button className="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700" onClick={handleAddEntry}>
           ➕ Add Entry
