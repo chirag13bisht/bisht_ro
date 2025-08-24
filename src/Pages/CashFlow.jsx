@@ -1,11 +1,12 @@
 // Add this to top imports
 import React,{ useMemo } from 'react';
 import { useEffect, useState } from 'react';
-import { collection, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc} from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { Pie } from 'react-chartjs-2';
 import 'chart.js/auto';
 import { exportToExcel } from '../utils/exportTOExcel';
+import { Trash2} from 'lucide-react';
+import toast from "react-hot-toast";
 
 const ENTRIES_PER_PAGE = 6;
 
@@ -42,7 +43,7 @@ const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
   };
 
   const handleAddEntry = async () => {
-    if (!amount || !category || (category !== 'other' && (!itemName || !quantity))) return alert('⚠️ Fill all fields');
+    if (!amount || !category || (category !== 'other' && (!itemName || !quantity))) return toast.alert('⚠️ Fill all fields');
 
     let type = category === 'sale' ? 'credit' : 'debit';
     let itemNameTrimmed = itemName.trim().toLowerCase();
@@ -56,9 +57,9 @@ const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
       const matchedItem = stockItems.find(i => i.name.toLowerCase() === itemNameTrimmed);
 
       if (category === 'sale') {
-        if (!matchedItem) return alert(`❌ Item "${itemName}" not found in stock.`);
+        if (!matchedItem) return toast.alert(`Item "${itemName}" not found in stock.`);
         if (matchedItem.quantity < qty) {
-          return alert(`❌ Only ${matchedItem.quantity} available in stock for "${itemName}".`);
+          return toast.alert(`Only ${matchedItem.quantity} available in stock for "${itemName}".`);
         }
         await updateDoc(doc(db, 'stock', matchedItem.id), {
           quantity: matchedItem.quantity - qty,
@@ -138,6 +139,19 @@ const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
     setDate("");
 
   };
+
+  const handleDeleteEntry = async (id) => {
+  if (!window.confirm("⚠️ Are you sure you want to delete this transaction?")) return;
+
+  try {
+    await deleteDoc(doc(db, "cashflow", id));
+    setEntries((prev) => prev.filter((entry) => entry.id !== id)); // update state
+    toast.success("Transaction deleted successfully!");
+  } catch (err) {
+    console.error("Error deleting transaction:", err);
+    toast.error("Failed to delete transaction.");
+  }
+};
 
   const handleItemChange = (value) => {
   setItemName(value);
@@ -325,25 +339,58 @@ const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
       />
 
       {/* Transaction Logs */}
-      <div className="space-y-3">
-        {paginatedEntries.map(entry => (
-          <div
-            key={entry.id}
-            className={`p-4 border-l-4 rounded shadow ${
-              entry.type === 'credit' ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'
-            }`}
-          >
-            <div className="flex justify-between text-sm text-gray-600 mb-1">
-              <span>{new Date(entry.date.toDate()).toLocaleString()}</span>
-              <span className="font-bold">{entry.type.toUpperCase()}</span>
-            </div>
-            <p className="font-medium text-gray-800">
-              ₹{entry.amount} — {entry.category} ({entry.itemName || 'N/A'} x {entry.quantity || 1})
-            </p>
-            {entry.description && <p className="text-gray-500 text-sm">📝 {entry.description}</p>}
-          </div>
-        ))}
+      <div className="space-y-4">
+  {paginatedEntries.map(entry => (
+    <div
+      key={entry.id}
+      className={`relative p-5 rounded-2xl shadow-md border transition transform hover:scale-[1.01] hover:shadow-lg ${
+        entry.type === 'credit'
+          ? 'border-green-400 bg-green-50'
+          : 'border-red-400 bg-red-50'
+      }`}
+    >
+      {/* Delete button in top-right corner */}
+      <button
+        onClick={() => handleDeleteEntry(entry.id)}
+        className="absolute top-2 right-2 text-red-600 hover:text-red-800"
+        title="Delete transaction"
+      >
+        <Trash2 size={18} />
+      </button>
+
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-xs text-gray-500">
+          {new Date(entry.date.toDate()).toLocaleString()}
+        </span>
+        <span
+          className={`text-xs font-bold px-2 py-1 rounded ${
+            entry.type === 'credit'
+              ? 'bg-green-200 text-green-900'
+              : 'bg-red-200 text-red-900'
+          }`}
+        >
+          {entry.type.toUpperCase()}
+        </span>
       </div>
+
+      <div className="flex justify-between items-center">
+        <div>
+          <p className="text-lg font-semibold text-gray-800">
+            ₹{entry.amount}
+          </p>
+          <p className="text-sm text-gray-600">
+            {entry.category} — {entry.itemName || 'N/A'} x {entry.quantity || 1}
+          </p>
+          {entry.description && (
+            <p className="text-xs text-gray-500 mt-1">
+              📝 {entry.description}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
 
       {/* Pagination */}
       {/* Pagination */}

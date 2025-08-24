@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, getDocs, collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import toast from "react-hot-toast";
 
 export default function UpdateComplaint() {
   const { id } = useParams();
@@ -127,7 +128,7 @@ export default function UpdateComplaint() {
         });
       }
 
-      alert('✅ Complaint marked as completed!');
+      toast.success('Complaint marked as completed!');
       navigate('/complaints');
     } catch (err) {
       console.error('Error updating complaint:', err);

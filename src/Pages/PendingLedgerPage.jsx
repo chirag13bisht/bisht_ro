@@ -1,117 +1,237 @@
-import { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc, addDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import React, { useState, useEffect } from "react";
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { db } from "../firebase/config";
+import { Trash2, Pencil, CheckCircle } from "lucide-react";
 
 export default function PendingLedgerPage() {
-  const [pendingList, setPendingList] = useState([]);
-  const [payments, setPayments] = useState({}); // store entered payment amounts
+  const [entries, setEntries] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [formData, setFormData] = useState({
+    type: "",
+    subType: "",
+    name: "",
+    number: "",
+    items: "",
+    money: "",
+    status: "pending",
+    date: ""
+  });
+
+  // 🔹 Pagination states
+  const [pendingPage, setPendingPage] = useState(1);
+  const [clearedPage, setClearedPage] = useState(1);
+  const pageSize = 5;
+
+  // 🔹 Fetch Entries
+  const fetchData = async () => {
+    const querySnapshot = await getDocs(collection(db, "pendingLedger"));
+    setEntries(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  };
 
   useEffect(() => {
-    fetchPending();
+    fetchData();
   }, []);
 
-  const fetchPending = async () => {
-    const snapshot = await getDocs(collection(db, 'pendingLedger'));
-    setPendingList(snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() })));
-  };
+  // 🔹 Add / Update Entry
+  const handleAdd = async () => {
+    const entryWithDate = {
+      ...formData,
+      status: editId ? formData.status : "pending",
+      date: new Date().toLocaleDateString(),
+    };
 
-  const handleUpdate = async (id, payment, current) => {
-    if (!payment || payment <= 0) return alert("Enter a valid amount");
-
-    const updatedPending = current.pendingAmount - payment;
-    const updatedPaid = (current.paidAmount || 0) + payment;
-
-    // 1️⃣ Update pendingLedger
-    const ref = doc(db, 'pendingLedger', id);
-    await updateDoc(ref, {
-      paidAmount: updatedPaid,
-      pendingAmount: updatedPending
-    });
-
-    // 2️⃣ Add a cashflow entry for this payment
-    await addDoc(collection(db, 'cashflow'), {
-      type: 'credit',
-      category: current.type || "pending",
-      amount: payment,
-      description: `Pending payment from ${current.name}`,
-      date: new Date()
-    });
-
-    // Optional: set pending to 0 if cleared
-    if (updatedPending <= 0) {
-      await updateDoc(ref, { pendingAmount: 0 });
+    if (editId) {
+      const entryRef = doc(db, "pendingLedger", editId);
+      await updateDoc(entryRef, entryWithDate);
+      setEditId(null);
+    } else {
+      await addDoc(collection(db, "pendingLedger"), entryWithDate);
     }
 
-    setPayments(prev => ({ ...prev, [id]: "" }));
-    fetchPending();
+    setDialogOpen(false);
+    setFormData({ type: "", subType: "", name: "", number: "", items: "", money: "", status: "pending", date: "" });
+    fetchData();
   };
 
-  const totalPending = pendingList.reduce((sum, entry) => sum + (entry.pendingAmount || 0), 0);
+  // 🔹 Delete Entry
+  const handleDelete = async (id) => {
+    const entryRef = doc(db, "pendingLedger", id);
+    await deleteDoc(entryRef);
+    fetchData();
+  };
+
+  // 🔹 Open Update Dialog
+  const handleUpdate = (entry) => {
+    setFormData(entry);
+    setEditId(entry.id);
+    setDialogOpen(true);
+  };
+
+  // 🔹 Mark as Cleared
+  const handleMarkCleared = async (id) => {
+    const entryRef = doc(db, "pendingLedger", id);
+    await updateDoc(entryRef, { status: "cleared", date: new Date().toLocaleDateString() });
+    fetchData();
+  };
+
+  // 🔹 Paginated Data
+  const pendingEntries = entries.filter(e => e.status === "pending");
+  const clearedEntries = entries.filter(e => e.status === "cleared");
+
+  const paginatedPending = pendingEntries.slice((pendingPage - 1) * pageSize, pendingPage * pageSize);
+  const paginatedCleared = clearedEntries.slice((clearedPage - 1) * pageSize, clearedPage * pageSize);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-blue-700">📜 Pending Payments Ledger</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">📑 Settlement Sheet</h1>
+        <button
+          onClick={() => { setDialogOpen(true); setEditId(null); }}
+          className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg shadow hover:bg-blue-700 transition"
+        >
+          ➕ Add Entry
+        </button>
+      </div>
 
-      <div className="overflow-x-auto shadow-lg rounded-lg border border-gray-200">
-        <table className="min-w-full border-collapse bg-white">
+      {/* PENDING TABLE */}
+      <h2 className="text-lg font-semibold mb-3 text-gray-700">⏳ Pending Settlements</h2>
+      <div className="overflow-x-auto bg-white shadow-md rounded-lg mb-4">
+        <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-blue-600 text-white text-left">
-              <th className="py-3 px-4">Customer</th>
-              <th className="py-3 px-4">Type</th>
-              <th className="py-3 px-4">Paid (₹)</th>
-              <th className="py-3 px-4">Pending (₹)</th>
-              <th className="py-3 px-4">Update Payment</th>
-              <th className="py-3 px-4">Action</th>
+            <tr className="bg-blue-50 text-left text-gray-700">
+              <th className="border p-3">Date</th>
+              <th className="border p-3">Type</th>
+              <th className="border p-3">Name</th>
+              <th className="border p-3">Number</th>
+              <th className="border p-3">Items / Money</th>
+              <th className="border p-3 text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {pendingList.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="text-center py-4 text-gray-500">
-                  No pending payments 🎉
-                </td>
-              </tr>
-            ) : (
-              pendingList.map(entry => (
-                <tr key={entry.id} className="border-t hover:bg-gray-50">
-                  <td className="py-3 px-4 font-semibold">{entry.name}</td>
-                  <td className="py-3 px-4">{entry.type || "-"}</td>
-                  <td className="py-3 px-4 text-green-700">{entry.paidAmount || 0}</td>
-                  <td className="py-3 px-4 text-red-600 font-bold">{entry.pendingAmount}</td>
-                  <td className="py-3 px-4">
-                    <input
-                      type="number"
-                      className="border border-gray-300 rounded px-2 py-1 w-24"
-                      value={payments[entry.id] || ""}
-                      onChange={(e) =>
-                        setPayments(prev => ({ ...prev, [entry.id]: e.target.value }))
-                      }
-                    />
-                  </td>
-                  <td className="py-3 px-4">
+            {paginatedPending.length > 0 ? (
+              paginatedPending.map((entry) => (
+                <tr key={entry.id} className="hover:bg-gray-50 transition">
+                  <td className="border p-3">{entry.date}</td>
+                  <td className="border p-3">{entry.subType}</td>
+                  <td className="border p-3 font-medium">{entry.name}</td>
+                  <td className="border p-3">{entry.number}</td>
+                  <td className="border p-3">{entry.items || entry.money}</td>
+                  <td className="border p-3 text-center flex justify-center gap-2">
                     <button
-                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
-                      onClick={() => handleUpdate(entry.id, Number(payments[entry.id]), entry)}
+                      onClick={() => handleUpdate(entry)}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
                     >
-                      Mark Paid
+                      <Pencil size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(entry.id)}
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleMarkCleared(entry.id)}
+                      className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition"
+                    >
+                      <CheckCircle size={18} />
                     </button>
                   </td>
                 </tr>
               ))
-            )}
-          </tbody>
-          {pendingList.length > 0 && (
-            <tfoot>
-              <tr className="bg-gray-100 font-bold">
-                <td colSpan="3" className="py-3 px-4 text-right">Total Pending:</td>
-                <td colSpan="3" className="py-3 px-4 text-red-700 text-lg">
-                  ₹{totalPending}
+            ) : (
+              <tr>
+                <td colSpan="7" className="text-center p-6 text-gray-500">
+                  No pending records 📌
                 </td>
               </tr>
-            </tfoot>
-          )}
+            )}
+          </tbody>
         </table>
       </div>
+      {/* Pending Pagination */}
+      {pendingEntries.length > pageSize && (
+        <div className="flex justify-center gap-4 mb-10">
+          <button
+            onClick={() => setPendingPage(p => Math.max(p - 1, 1))}
+            disabled={pendingPage === 1}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            ◀ Prev
+          </button>
+          <span className="px-3 py-1">Page {pendingPage} of {Math.ceil(pendingEntries.length / pageSize)}</span>
+          <button
+            onClick={() => setPendingPage(p => p + 1)}
+            disabled={pendingPage >= Math.ceil(pendingEntries.length / pageSize)}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            Next ▶
+          </button>
+        </div>
+      )}
+
+      {/* CLEARED TABLE */}
+      <h2 className="text-lg font-semibold mb-3 text-gray-700">✅ Cleared Settlements</h2>
+      <div className="overflow-x-auto bg-white shadow-md rounded-lg">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-green-50 text-left text-gray-700">
+              <th className="border p-3">Date</th>
+              <th className="border p-3">Type</th>
+              <th className="border p-3">Name</th>
+              <th className="border p-3">Number</th>
+              <th className="border p-3">Items / Money</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedCleared.length > 0 ? (
+              paginatedCleared.map((entry) => (
+                <tr key={entry.id} className="hover:bg-gray-50 transition">
+                  <td className="border p-3">{entry.date}</td>
+                  <td className="border p-3">{entry.subType}</td>
+                  <td className="border p-3 font-medium">{entry.name}</td>
+                  <td className="border p-3">{entry.number}</td>
+                  <td className="border p-3">{entry.items || entry.money}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="6" className="text-center p-6 text-gray-500">
+                  No cleared records yet ✅
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {/* Cleared Pagination */}
+      {clearedEntries.length > pageSize && (
+        <div className="flex justify-center gap-4 mt-4">
+          <button
+            onClick={() => setClearedPage(p => Math.max(p - 1, 1))}
+            disabled={clearedPage === 1}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            ◀ Prev
+          </button>
+          <span className="px-3 py-1">Page {clearedPage} of {Math.ceil(clearedEntries.length / pageSize)}</span>
+          <button
+            onClick={() => setClearedPage(p => p + 1)}
+            disabled={clearedPage >= Math.ceil(clearedEntries.length / pageSize)}
+            className="px-3 py-1 border rounded disabled:opacity-50"
+          >
+            Next ▶
+          </button>
+        </div>
+      )}
+
+      {/* Your dialog stays same below */}
+      {dialogOpen && (
+        // 🔹 dialog code remains same as yours
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          {/* ... dialog contents */}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Select from 'react-select';
 import { collection, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import toast from "react-hot-toast";
 
 export default function ComplaintForm() {
   const [type, setType] = useState('');
@@ -37,12 +38,12 @@ export default function ComplaintForm() {
     e.preventDefault();
 
     if (type === 'amc' && !selectedCustomer) {
-      alert('Please select a valid customer for AMC complaint.');
+      toast.alert('Please select a valid customer for AMC complaint.');
       return;
     }
 
     if (type === 'regular' && (!name || !phone || !address)) {
-      alert('Please fill in all customer details for a regular complaint.');
+      toast.alert('Please fill in all customer details for a regular complaint.');
       return;
     }
 
@@ -65,7 +66,7 @@ export default function ComplaintForm() {
     };
 
     await addDoc(collection(db, 'complaints'), newComplaint);
-    alert('Complaint filed successfully!');
+    toast.success('Complaint filed successfully!');
 
     // Reset form
     setType('');

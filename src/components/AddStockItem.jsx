@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useNavigate } from 'react-router-dom';
+import toast from "react-hot-toast";
 
 export default function AddStockItem() {
   const [item, setItem] = useState({
@@ -28,7 +29,7 @@ export default function AddStockItem() {
     const type = item.type;
 
     if (!name || isNaN(quantity) || isNaN(price) || !type) {
-      alert('Please enter valid values for all fields.');
+      toast.alert('Please enter valid values for all fields.');
       return;
     }
 
@@ -40,7 +41,7 @@ export default function AddStockItem() {
         type,
         lastUpdated: serverTimestamp(),
       });
-      alert('Stock item added!');
+      toast.success('Stock item added!');
       navigate('/stock');
     } catch (err) {
       console.error('🔥 Error adding stock item:', err.message || err);

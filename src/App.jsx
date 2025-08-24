@@ -23,7 +23,7 @@ import CustomerDetails from './Pages/CustomerDetails';
 import BillForm from './components/BillForm'
 import PendingLedgerPage from './Pages/PendingLedgerPage';
 import BookletPage from './Pages/BookletPage';
-
+import { Toaster } from "react-hot-toast";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null); // null = loading
@@ -71,6 +71,7 @@ function App() {
 
         <Route path="*" element={<Navigate to={isLoggedIn ? '/dashboard' : '/login'} />} />
       </Routes>
+      <Toaster position="top-center" reverseOrder={false} />
     </Router>
   );
 }

@@ -4,6 +4,7 @@ import { doc, getDoc, collection, getDocs, updateDoc, serverTimestamp } from 'fi
 import { db } from '../firebase/config';
 import { useParams } from 'react-router-dom';
 import { generateBillPDF } from '../utils/generateBillPDF';
+import toast from "react-hot-toast";
 
 const ITEMS_PER_PAGE = 5;
 
@@ -93,23 +94,23 @@ export default function StockDetail() {
       await Promise.all([...updates, ...cashUpdates]);
       setItem(prev => ({ ...prev, name: newName }));
       setRenaming(false);
-      alert('✅ Stock renamed successfully!');
+      toast.success('Stock renamed successfully!');
     } catch (err) {
       console.error('Rename failed:', err);
-      alert('❌ Error renaming stock.');
+      toast.error('Error renaming stock.');
     }
   };
 
   const updateQuantity = async (change) => {
     const changeAmount = parseInt(adjustQty);
     if (isNaN(changeAmount) || changeAmount < 1) {
-      alert('Enter a valid quantity.');
+      toast.alert('Enter a valid quantity.');
       return;
     }
 
     const newQty = item.quantity + change * changeAmount;
     if (newQty < 0) {
-      alert('Cannot have negative stock!');
+      toast.alert('Cannot have negative stock!');
       return;
     }
 
@@ -120,7 +121,7 @@ export default function StockDetail() {
       });
       setItem({ ...item, quantity: newQty });
       setAdjustQty('');
-      alert('Quantity updated!');
+      toast.success('Quantity updated!');
     } catch (err) {
       console.error('Error updating quantity:', err);
     }

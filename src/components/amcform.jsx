@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import toast from "react-hot-toast";
 
 export default function Amcform() {
   const [formData, setFormData] = useState({
@@ -66,7 +67,7 @@ export default function Amcform() {
 
     
 
-    alert('✅ Customer added!');
+    toast.success('Customer added!');
     setFormData({
       name: '',
       phone: '',

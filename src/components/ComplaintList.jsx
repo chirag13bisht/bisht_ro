@@ -137,7 +137,7 @@ export function ComplaintList() {
                 className={`relative p-5 bg-white shadow-lg rounded-lg border hover:shadow-xl transition ${
                   isPending ? 'border-red-300' : 'border-green-300'
                 }`}
-              >
+                >
                 {/* Edit icon */}
                 <button
                   onClick={() => handleEditClick(c)}

@@ -2,6 +2,7 @@
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { saveAs } from 'file-saver';
+import toast from "react-hot-toast";
 
 // Load the template from public folder
 async function loadFile(url) {
@@ -69,6 +70,6 @@ export async function generateBillPDF(data) {
         console.error('❌ Template error:', err.properties.explanation, '| Tag:', err.properties.tag)
       );
     }
-    alert('❌ Failed to generate bill. Check console for details.');
+    toast.error('Failed to generate bill. Check console for details.');
   }
 }

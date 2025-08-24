@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useParams, useNavigate } from 'react-router-dom';
+import toast from "react-hot-toast";
 
 export default function UpdateStockQuantity() {
   const { itemId } = useParams();
@@ -18,7 +19,7 @@ export default function UpdateStockQuantity() {
       if (snapshot.exists()) {
         setItem(snapshot.data());
       } else {
-        alert('Item not found');
+        toast.alert('Item not found');
         navigate('/stock');
       }
     };
@@ -28,13 +29,13 @@ export default function UpdateStockQuantity() {
   const updateQuantity = async (change) => {
     const changeAmount = parseInt(adjustQty);
     if (isNaN(changeAmount) || changeAmount < 1) {
-      alert('Enter a valid quantity.');
+      toast.alert('Enter a valid quantity.');
       return;
     }
 
     const newQty = item.quantity + change * changeAmount;
     if (newQty < 0) {
-      alert('Cannot have negative stock!');
+      toast.error('Cannot have negative stock!');
       return;
     }
 
@@ -45,7 +46,7 @@ export default function UpdateStockQuantity() {
       });
       setItem({ ...item, quantity: newQty });
       setAdjustQty('');
-      alert('Quantity updated!');
+      toast.success('Quantity updated!');
     } catch (err) {
       console.error('Error updating quantity:', err);
     }

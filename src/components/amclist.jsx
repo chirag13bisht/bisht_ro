@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, addDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { exportToExcel } from '../utils/exportTOExcel';
 import { Link } from 'react-router-dom';
-import { Trash2, Pencil } from 'lucide-react';
+import { Trash2, Pencil, RefreshCw } from 'lucide-react';
 import EditCustomerModal from '../components/EditCustomerModal'; // Make sure it's implemented
+import RenewAmcModal from '../components/RenewAmcModal';
+import toast from "react-hot-toast";
 
 export default function Amclist() {
   const [customers, setCustomers] = useState([]);
@@ -12,6 +14,7 @@ export default function Amclist() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [sortBy, setSortBy] = useState('name');
+  const [renewCustomer, setRenewCustomer] = useState(null);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -58,95 +61,126 @@ export default function Amclist() {
   };
 
   const handleSave = async (id, updatedData) => {
-  try {
-    const customerRef = doc(db, 'customers', id);
+    try {
+      const customerRef = doc(db, 'customers', id);
 
-    // Convert charge and quantity to numbers
-    const updatedCharge = Number(updatedData.charge);
-    const updatedQuantity = Number(updatedData.quantity || 1);
+      // Convert charge and quantity to numbers
+      const updatedCharge = Number(updatedData.charge);
+      const updatedQuantity = Number(updatedData.quantity || 1);
 
-    const finalData = {
-      ...updatedData,
-      charge: updatedCharge,
-      quantity: updatedQuantity,
-    };
+      const finalData = {
+        ...updatedData,
+        charge: updatedCharge,
+        quantity: updatedQuantity,
+      };
 
-    // 1. Update customer document
-    await updateDoc(customerRef, finalData);
-    console.log('✅ Customer updated');
+      // 1. Update customer document
+      await updateDoc(customerRef, finalData);
 
-    // 2. Update local state
-    setCustomers(prev =>
-      prev.map(c => (c.id === id ? { ...c, ...finalData } : c))
-    );
+      // 2. Update local state
+      setCustomers(prev =>
+        prev.map(c => (c.id === id ? { ...c, ...finalData } : c))
+      );
 
-    // 3. Update corresponding cashflow document (if any)
-    const customer = customers.find(c => c.id === id);
-    if (customer?.cashflowId) {
-      const cashflowRef = doc(db, 'cashflow', customer.cashflowId);
-      const amount = updatedCharge * updatedQuantity;
+      // 3. Update corresponding cashflow document (if any)
+      const customer = customers.find(c => c.id === id);
+      if (customer?.cashflowId) {
+        const cashflowRef = doc(db, 'cashflow', customer.cashflowId);
+        const amount = updatedCharge * updatedQuantity;
 
-      await updateDoc(cashflowRef, {
-        amount,
-        remarks: finalData.remarks || '',
-        updatedAt: new Date(),
-      });
+        await updateDoc(cashflowRef, {
+          amount,
+          remarks: finalData.remarks || '',
+          updatedAt: new Date(),
+        });
 
-      console.log('✅ Cashflow updated');
-    } else {
-      console.warn('⚠️ No cashflowId found for customer');
+      } else {
+        console.warn('⚠️ No cashflowId found for customer');
+      }
+
+      // 4. Close modal
+      setEditingCustomer(null);
+    } catch (err) {
+      console.error('❌ Error updating customer or cashflow:', err);
+      toast.error('Failed to update. See console for error.');
     }
-
-    // 4. Close modal
-    setEditingCustomer(null);
-  } catch (err) {
-    console.error('❌ Error updating customer or cashflow:', err);
-    alert('Failed to update. See console for error.');
-  }
-};
+  };
 
 
 
 
   const filteredCustomers = customers
-  .filter(c => {
-    const matchesFilter =
-      filter === 'all' ||
-      (filter === 'active' && c.isAmcActive) ||
-      (filter === 'expired' && !c.isAmcActive);
+    .filter(c => {
+      const matchesFilter =
+        filter === 'all' ||
+        (filter === 'active' && c.isAmcActive) ||
+        (filter === 'expired' && !c.isAmcActive);
 
-    const matchesSearch =
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.address.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch =
+        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.address.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return matchesFilter && matchesSearch;
-  })
-  .sort((a, b) => {
-  if (sortBy === 'name') {
-    return a.name.localeCompare(b.name); // alphabetical
-  }
-  if (sortBy === 'endDateLatest') {
-    const dateA = a.amcEnd ? new Date(a.amcEnd) : new Date(0);
-    const dateB = b.amcEnd ? new Date(b.amcEnd) : new Date(0);
-    return dateB - dateA; // latest AMC end date first
-  }
-  if (sortBy === 'endDateOldest') {
-    const dateA = a.amcEnd ? new Date(a.amcEnd) : new Date(0);
-    const dateB = b.amcEnd ? new Date(b.amcEnd) : new Date(0);
-    return dateA - dateB; // oldest AMC end date first
-  }
-  if (sortBy === 'startDateLatest') {
-    const dateA = a.amcStart ? new Date(a.amcStart) : new Date(0);
-    const dateB = b.amcStart ? new Date(b.amcStart) : new Date(0);
-    return dateB - dateA; // latest AMC start date first
-  }
-  if (sortBy === 'startDateOldest') {
-    const dateA = a.amcStart ? new Date(a.amcStart) : new Date(0);
-    const dateB = b.amcStart ? new Date(b.amcStart) : new Date(0);
-    return dateA - dateB; // oldest AMC start date first
-  }
-  return 0;
-});
+      return matchesFilter && matchesSearch;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') {
+        return a.name.localeCompare(b.name); // alphabetical
+      }
+      if (sortBy === 'endDateLatest') {
+        const dateA = a.amcEnd ? new Date(a.amcEnd) : new Date(0);
+        const dateB = b.amcEnd ? new Date(b.amcEnd) : new Date(0);
+        return dateB - dateA; // latest AMC end date first
+      }
+      if (sortBy === 'endDateOldest') {
+        const dateA = a.amcEnd ? new Date(a.amcEnd) : new Date(0);
+        const dateB = b.amcEnd ? new Date(b.amcEnd) : new Date(0);
+        return dateA - dateB; // oldest AMC end date first
+      }
+      if (sortBy === 'startDateLatest') {
+        const dateA = a.amcStart ? new Date(a.amcStart) : new Date(0);
+        const dateB = b.amcStart ? new Date(b.amcStart) : new Date(0);
+        return dateB - dateA; // latest AMC start date first
+      }
+      if (sortBy === 'startDateOldest') {
+        const dateA = a.amcStart ? new Date(a.amcStart) : new Date(0);
+        const dateB = b.amcStart ? new Date(b.amcStart) : new Date(0);
+        return dateA - dateB; // oldest AMC start date first
+      }
+      return 0;
+    });
+
+
+  const renewAMC = async (customer, formData) => {
+    try {
+      // Create cashflow entry for AMC renewal
+      const cashflowDoc = await addDoc(collection(db, "cashflow"), {
+        type: "credit",
+        category: "amc",
+        amount: Number(formData.charge),
+        description: `AMC Renewal from ${customer.name}`,
+        date: new Date(formData.startDate),
+        createdAt: new Date(),
+      });
+
+      // Update existing AMC customer doc
+      const customerRef = doc(db, "customers", customer.id);
+      await updateDoc(customerRef, {
+        charge: Number(formData.charge),
+        amcStart: formData.startDate,
+        amcEnd: formData.endDate,
+        renewedAt: new Date(),
+        cashflowIds: arrayUnion(cashflowDoc.id), // ✅ add new cashflowId to array
+      });
+
+      setRenewCustomer(null);
+      toast.success("AMC renewed successfully!");
+    } catch (err) {
+      console.error("Error renewing AMC:", err);
+      toast.error("Error renewing AMC. Please try again.");
+    }
+  };
+
+
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
@@ -154,61 +188,60 @@ export default function Amclist() {
 
       {/* Filters & Export */}
       {/* Filters & Export */}
-<div className="bg-white shadow-md rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-  {/* 🔍 Search */}
-  <div className="flex-1">
-    <input
-      type="text"
-      placeholder="🔍 Search by name or address"
-      className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-    />
-  </div>
+      <div className="bg-white shadow-md rounded-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* 🔍 Search */}
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="🔍 Search by name or address"
+            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
 
-  {/* 📊 Filter Buttons */}
-  <div className="flex gap-2 justify-center">
-    {['all', 'active', 'expired'].map(f => (
-      <button
-        key={f}
-        onClick={() => setFilter(f)}
-        className={`px-4 py-1 rounded-lg font-medium transition text-sm ${
-          filter === f
-            ? 'bg-blue-600 text-white shadow-md'
-            : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-        }`}
-      >
-        {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-      </button>
-    ))}
-  </div>
+        {/* 📊 Filter Buttons */}
+        <div className="flex gap-2 justify-center">
+          {['all', 'active', 'expired'].map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-1 rounded-lg font-medium transition text-sm ${filter === f
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                }`}
+            >
+              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
 
-  {/* 📅 Sort Dropdown */}
-  <div className="flex justify-center items-center gap-2">
-    <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Sort by:</label>
-    <select
-      className="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"
-      value={sortBy}
-      onChange={(e) => setSortBy(e.target.value)}
-    >
-      <option value="name">Name (A–Z)</option>
-      <option value="endDateLatest">AMC End Date (Latest First)</option>
-      <option value="endDateOldest">AMC End Date (Oldest First)</option>
-      <option value="startDateLatest">AMC Start Date (Latest First)</option>
-      <option value="startDateOldest">AMC Start Date (Oldest First)</option>
-    </select>
-  </div>
+        {/* 📅 Sort Dropdown */}
+        <div className="flex justify-center items-center gap-2">
+          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Sort by:</label>
+          <select
+            className="p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="name">Name (A–Z)</option>
+            <option value="endDateLatest">AMC End Date (Latest First)</option>
+            <option value="endDateOldest">AMC End Date (Oldest First)</option>
+            <option value="startDateLatest">AMC Start Date (Latest First)</option>
+            <option value="startDateOldest">AMC Start Date (Oldest First)</option>
+          </select>
+        </div>
 
-  {/* 📥 Export Button */}
-  <div className="flex justify-center">
-    <button
-      className="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition text-sm"
-      onClick={() => exportToExcel(customers, 'Customer_List')}
-    >
-      📥 Export
-    </button>
-  </div>
-</div>
+        {/* 📥 Export Button */}
+        <div className="flex justify-center">
+          <button
+            className="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition text-sm"
+            onClick={() => exportToExcel(customers, 'Customer_List')}
+          >
+            📥 Export
+          </button>
+        </div>
+      </div>
 
 
       {/* Customer Cards */}
@@ -233,11 +266,20 @@ export default function Amclist() {
 
                 <button
                   onClick={() => setEditingCustomer(customer)}
-                  className="absolute top-2 left-2 text-blue-500 hover:text-blue-700"
+                  className="absolute top-2 right-9 text-blue-500 hover:text-blue-700"
                   title="Edit Customer"
                 >
                   <Pencil size={18} />
                 </button>
+                {!customer.isAmcActive && (
+                  <button
+                    onClick={() => setRenewCustomer(customer)}
+                    className="absolute top-2 right-16 text-blue-500 hover:text-blue-700"
+                    title="Renew AMC"
+                  >
+                    <RefreshCw size={18} />
+                  </button>
+                )}
 
                 <Link to={`/customer/${customer.id}`}>
                   <p className="font-semibold text-blue-800 text-lg">{customer.name}</p>
@@ -267,6 +309,14 @@ export default function Amclist() {
           customer={editingCustomer}
           onClose={() => setEditingCustomer(null)}
           onSave={handleSave}
+        />
+      )}
+
+      {renewCustomer && (
+        <RenewAmcModal
+          customer={renewCustomer}
+          onClose={() => setRenewCustomer(null)}
+          onRenew={renewAMC}
         />
       )}
     </div>

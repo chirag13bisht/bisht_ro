@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import toast from "react-hot-toast";
 
 export default function UpdateStockPrice() {
   const { itemId } = useParams();
@@ -20,7 +21,7 @@ export default function UpdateStockPrice() {
           setItem(snapshot.data());
           
         } else {
-          alert('Item not found');
+          toast.alert('Item not found');
           navigate('/stock/:itemId');
         }
       } catch (err) {
@@ -37,7 +38,7 @@ export default function UpdateStockPrice() {
     e.preventDefault();
     const price = parseFloat(newPrice);
     if (isNaN(price) || price <= 0) {
-      alert('Please enter a valid price.');
+      toast.alert('Please enter a valid price.');
       return;
     }
 
@@ -46,7 +47,7 @@ export default function UpdateStockPrice() {
         price,
         lastUpdated: serverTimestamp(),
       });
-      alert('Price updated!');
+      toast.success('Price updated!');
       navigate('/stock');
     } catch (err) {
       console.error('Error updating price:', err);
