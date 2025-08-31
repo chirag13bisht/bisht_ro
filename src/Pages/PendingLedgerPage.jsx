@@ -227,11 +227,128 @@ export default function PendingLedgerPage() {
 
       {/* Your dialog stays same below */}
       {dialogOpen && (
-        // 🔹 dialog code remains same as yours
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          {/* ... dialog contents */}
-        </div>
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+    <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md animate-fadeIn overflow-y-auto max-h-[90vh]">
+      <h2 className="text-xl font-semibold mb-4 text-gray-800">
+        {editId ? "✏️ Update Entry" : "➕ Add New Entry"}
+      </h2>
+
+      {/* Type Selection */}
+      <label className="block mb-2 font-medium">Type</label>
+      <select
+        className="w-full border p-2 rounded mb-4"
+        value={formData.type}
+        onChange={(e) =>
+          setFormData({
+            ...formData,
+            type: e.target.value,
+            subType: "",
+            items: "",
+            money: "",
+          })
+        }
+      >
+        <option value="">Select</option>
+        <option value="Receivable Item/Payable Item">
+          Receivable Item/Payable Item
+        </option>
+        <option value="Receivable Money/Payable Money">
+          Receivable Money/Payable Money
+        </option>
+      </select>
+
+      {/* Sub Type + Inputs */}
+      {formData.type === "Receivable Item/Payable Item" && (
+        <>
+          <label className="block mb-2 font-medium">Sub Type</label>
+          <select
+            className="w-full border p-2 rounded mb-4"
+            value={formData.subType}
+            onChange={(e) =>
+              setFormData({ ...formData, subType: e.target.value })
+            }
+          >
+            <option value="">Select</option>
+            <option value="Receivable Item">Receivable Item</option>
+            <option value="Payable Item">Payable Item</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Items"
+            className="w-full border p-2 rounded mb-4"
+            value={formData.items}
+            onChange={(e) =>
+              setFormData({ ...formData, items: e.target.value })
+            }
+          />
+        </>
       )}
+
+      {formData.type === "Receivable Money/Payable Money" && (
+        <>
+          <label className="block mb-2 font-medium">Sub Type</label>
+          <select
+            className="w-full border p-2 rounded mb-4"
+            value={formData.subType}
+            onChange={(e) =>
+              setFormData({ ...formData, subType: e.target.value })
+            }
+          >
+            <option value="">Select</option>
+            <option value="Receivable Money">Receivable Money</option>
+            <option value="Payable Money">Payable Money</option>
+          </select>
+          <input
+            type="number"
+            placeholder="Money"
+            className="w-full border p-2 rounded mb-4"
+            value={formData.money}
+            onChange={(e) =>
+              setFormData({ ...formData, money: e.target.value })
+            }
+          />
+        </>
+      )}
+
+      {/* Common Inputs */}
+      <input
+        type="text"
+        placeholder="Name"
+        className="w-full border p-2 rounded mb-4"
+        value={formData.name}
+        onChange={(e) =>
+          setFormData({ ...formData, name: e.target.value })
+        }
+      />
+      <input
+        type="text"
+        placeholder="Number"
+        className="w-full border p-2 rounded mb-4"
+        value={formData.number}
+        onChange={(e) =>
+          setFormData({ ...formData, number: e.target.value })
+        }
+      />
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 mt-6">
+        <button
+          onClick={() => setDialogOpen(false)}
+          className="px-4 py-2 border rounded-lg hover:bg-gray-100"
+        >
+          ❌ Cancel
+        </button>
+        <button
+          onClick={handleAdd}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          {editId ? "💾 Update" : "➕ Add"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
