@@ -369,114 +369,97 @@ const removeOneItem = (id) => {
 
 
       {/* Add Transaction */}
-      <div className="bg-white border rounded shadow p-6 mb-8">
-        <h3 className="text-xl font-bold mb-4">➕ Add Transaction</h3>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <select className="border p-2 rounded" value={category} onChange={e => setCategory(e.target.value)}>
-            <option value="sale">Sale</option>
-            <option value="purchase">Purchase</option>
-            <option value="other">Other</option>
-          </select>
+<div className="bg-white border rounded shadow p-6 mb-8">
+  <h3 className="text-xl font-bold mb-4">➕ Add Transaction</h3>
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <select className="border p-2 rounded w-full" value={category} onChange={e => setCategory(e.target.value)}>
+      <option value="sale">Sale</option>
+      <option value="purchase">Purchase</option>
+      <option value="other">Other</option>
+    </select>
 
-          {category === 'other' && (
-            <select className="border p-2 rounded" value={customType} onChange={e => setCustomType(e.target.value)}>
-              <option value="credit">Credit</option>
-              <option value="debit">Debit</option>
-            </select>
-          )}
+    {category === 'other' && (
+      <select className="border p-2 rounded w-full" value={customType} onChange={e => setCustomType(e.target.value)}>
+        <option value="credit">Credit</option>
+        <option value="debit">Debit</option>
+      </select>
+    )}
 
-          {category !== 'other' && (
-            <>
-             {/* Multiple Items Input */}
-<div className="col-span-2">
-  <label className="block mb-1 font-medium">Items</label>
-  <input
-    type="text"
-    className="w-full border border-gray-300 p-2 rounded"
-    placeholder="Start typing or add custom item"
-    value={itemInput}
-    onChange={handleItemInput}
-    onKeyDown={(e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        if (itemInput.trim()) addItem(itemInput);
-      }
-    }}
-  />
-  {/* Suggestions */}
-  {suggestions.length > 0 && (
-    <ul className="border mt-1 rounded bg-white max-h-32 overflow-auto">
-      {suggestions.map((item) => (
-        <li
-          key={item.id}
-          className="px-3 py-1 hover:bg-blue-100 cursor-pointer"
-          onClick={() => addItem(item.name)}
-        >
-          {item.name}
-        </li>
-      ))}
-    </ul>
-  )}
-  {/* Selected Items */}
-  <div className="flex flex-wrap mt-2 gap-2">
-    {selectedItems.map((item) => (
-      <span
-        key={item.id}
-        className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${
-          item.custom
-            ? "bg-yellow-100 text-yellow-800"
-            : "bg-blue-100 text-blue-700"
-        }`}
-      >
-        {item.name} x{item.quantity}
-        <button
-          type="button"
-          className="ml-1 text-red-500 hover:text-red-700 font-bold"
-          onClick={() => removeOneItem(item.id)}
-        >
-          ×
-        </button>
-      </span>
-    ))}
+    {category !== 'other' && (
+      <div className="col-span-1 sm:col-span-2">
+        <label className="block mb-1 font-medium">Items</label>
+        <input
+          type="text"
+          className="w-full border border-gray-300 p-2 rounded"
+          placeholder="Start typing or add custom item"
+          value={itemInput}
+          onChange={handleItemInput}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (itemInput.trim()) addItem(itemInput);
+            }
+          }}
+        />
+        {/* Suggestions */}
+        {suggestions.length > 0 && (
+          <ul className="border mt-1 rounded bg-white max-h-32 overflow-auto w-full max-w-full">
+            {suggestions.map((item) => (
+              <li
+                key={item.id}
+                className="px-3 py-1 hover:bg-blue-100 cursor-pointer"
+                onClick={() => addItem(item.name)}
+              >
+                {item.name}
+              </li>
+            ))}
+          </ul>
+        )}
+        {/* Selected Items */}
+        <div className="flex flex-wrap mt-2 gap-2 w-full break-words">
+          {selectedItems.map((item) => (
+            <span
+              key={item.id}
+              className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${
+                item.custom
+                  ? "bg-yellow-100 text-yellow-800"
+                  : "bg-blue-100 text-blue-700"
+              }`}
+            >
+              {item.name} x{item.quantity}
+              <button
+                type="button"
+                className="ml-1 text-red-500 hover:text-red-700 font-bold"
+                onClick={() => removeOneItem(item.id)}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <input type="number" className="border p-2 rounded w-full" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
+    {selectedItem?.type !== "amc" && (
+      <input type="text" className="border p-2 rounded w-full" placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} />
+    )}
+    <input type="date" className="border p-2 rounded w-full" value={date} onChange={e => setDate(e.target.value)} />
+
+    {hasAmcItem && (
+      <>
+        <input type="text" placeholder="Customer Name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="border p-2 rounded w-full" />
+        <input type="text" placeholder="Phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="border p-2 rounded w-full" />
+        <input type="text" placeholder="Address" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="border p-2 rounded w-full" />
+      </>
+    )}
   </div>
+
+  <button className="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 w-full sm:w-auto">
+    ➕ Add Entry
+  </button>
 </div>
 
-            </>
-          )}
-
-          <input type="number" className="border p-2 rounded" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
-         {selectedItem?.type !== "amc" && (<input type="text" className="border p-2 rounded" placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} />)}
-          <input type="date" className="border p-2 rounded" placeholder="Deate" value={date} onChange={e => setDate(e.target.value)} />
-          {hasAmcItem && (
-  <>
-    <input
-      type="text"
-      placeholder="Customer Name"
-      value={formData.name}
-      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-      className="border p-2 rounded w-full"
-    />
-    <input
-      type="text"
-      placeholder="Phone"
-      value={formData.phone}
-      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-      className="border p-2 rounded w-full"
-    />
-    <input
-      type="text"
-      placeholder="Address"
-      value={formData.address}
-      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-      className="border p-2 rounded w-full"
-    />
-  </>
-)}
-        </div>
-        <button className="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700" onClick={handleAddEntry}>
-          ➕ Add Entry
-        </button>
-      </div>
 
       {/* Search */}
       <input
