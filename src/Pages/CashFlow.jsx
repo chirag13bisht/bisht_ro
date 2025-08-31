@@ -1,7 +1,7 @@
 // Add this to top imports
 import React,{ useMemo } from 'react';
 import { useEffect, useState } from 'react';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc} from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where} from 'firebase/firestore';
 import { db } from '../firebase/config';
 import 'chart.js/auto';
 import { exportToExcel } from '../utils/exportTOExcel';
@@ -25,6 +25,10 @@ export default function CashflowPage() {
   const [date, setDate]= useState('');
   const [selectedItem, setSelectedItem] = useState(null);
 const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
+const [itemInput, setItemInput] = useState("");
+const [selectedItems, setSelectedItems] = useState([]);
+const [suggestions, setSuggestions] = useState([]);
+
 
   useEffect(() => {
     fetchEntries();
@@ -42,103 +46,210 @@ const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
     setStockItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
   };
 
-  const handleAddEntry = async () => {
-    if (!amount || !category || (category !== 'other' && (!itemName || !quantity))) return toast.alert('⚠️ Fill all fields');
+  const calculateAmcEnd = (startDate) => {
+  const d = new Date(startDate);
+  d.setFullYear(d.getFullYear() + 1);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split("T")[0];
+};
 
-    let type = category === 'sale' ? 'credit' : 'debit';
-    let itemNameTrimmed = itemName.trim().toLowerCase();
-    let qty = Number(quantity);
+const handleAddEntry = async () => {
+  if (!amount || !category || (category !== "other" && selectedItems.length === 0)) {
+    return toast.error("⚠️ Fill all fields");
+  }
 
-    if (category === 'other') {
-      type = customType;
-      itemNameTrimmed = '';
-      qty = null;
-    } else {
-      const matchedItem = stockItems.find(i => i.name.toLowerCase() === itemNameTrimmed);
+  try {
+    const type = category === "sale" ? "credit" : "debit";
 
-      if (category === 'sale') {
-        if (!matchedItem) return toast.alert(`Item "${itemName}" not found in stock.`);
-        if (matchedItem.quantity < qty) {
-          return toast.alert(`Only ${matchedItem.quantity} available in stock for "${itemName}".`);
-        }
-        await updateDoc(doc(db, 'stock', matchedItem.id), {
-          quantity: matchedItem.quantity - qty,
-        });
-      } else if (category === 'purchase') {
-        if (matchedItem) {
-          await updateDoc(doc(db, 'stock', matchedItem.id), {
-            quantity: matchedItem.quantity + qty,
-          });
-        } else {
-          await addDoc(collection(db, 'stock'), {
-            name: itemNameTrimmed,
-            quantity: qty,
-            pricePerUnit: Number(amount) / qty,
-            createdAt: new Date(date),
-          });
+    // Build lookup maps for fast/more reliable matching
+    const stockById = new Map(stockItems.map(s => [s.id, s]));
+    const stockByName = new Map(stockItems.map(s => [s.name.trim().toLowerCase(), s]));
+
+    // --- Pre-check for sales: ensure every selected item is present and has enough qty
+    if (category === "sale") {
+      const problems = [];
+      for (const item of selectedItems) {
+        const qty = Number(item.quantity || 0);
+        // If it's a stock item (not custom) prefer id lookup
+        const stock = item.id && stockById.get(item.id) ? stockById.get(item.id) : stockByName.get((item.name || "").trim().toLowerCase());
+
+        if (!stock) {
+          problems.push(`"${item.name}" not found in stock`);
+        } else if ((stock.quantity ?? 0) < qty) {
+          problems.push(`"${item.name}" only ${stock.quantity} in stock`);
         }
       }
-    }
- 
-
-  const calculateAmcEnd = (startDate) => {
-  const date = new Date(startDate);
-  date.setFullYear(date.getFullYear() + 1);
-  date.setDate(date.getDate() - 1); // Subtract 1 day
-  return date.toISOString().split('T')[0];
-  }
-    if (selectedItem?.type === "amc") {
-      // 1️⃣ Add customer first
-      const customerRef = await addDoc(collection(db, "customers"), {
-        name: formData.name,
-        phone: formData.phone,
-        address: formData.address,
-        amcStart: date,
-        amcEnd: calculateAmcEnd(date),
-        quantity: Number(formData.quantity) || 1,
-        amcItem: selectedItem.name,
-        charge: Number(amount),
-      });
-
-      // 2️⃣ Add cashflow linked to customer
-      const cashflowRef = await addDoc(collection(db, "cashflow"), {
-        type: "credit",
-        category: "amc",
-        amount: Number(amount),
-        description: `AMC Charge from ${formData.name}`,
-        date: new Date(formData.amcStart || date),
-        quantity: Number(quantity) || 1,
-        customerId: customerRef.id,
-        recordedBy: "admin",
-      });
-
-      // 3️⃣ Update customer with cashflowId
-      await updateDoc(doc(db, "customers", customerRef.id), {
-        cashflowId: cashflowRef.id,
-      });
-    } else {
-      // Normal transaction
-      await addDoc(collection(db, "cashflow"), {
-        type,
-        category,
-        amount: Number(amount),
-        itemName: itemNameTrimmed,
-        quantity: Number(qty) || 1,
-        description,
-        date: new Date(date),
-        recordedBy: "admin",
-      });
+      if (problems.length) {
+        return toast.error(`Can't proceed:\n• ${problems.join("\n• ")}`);
+      }
     }
 
-    // Reset form
-    setFormData({ name: "", phone: "", address: "", amcStart: "", quantity: "" });
+    // --- Apply stock updates and build items array for a single cashflow doc
+    const itemsForCashflow = [];
+    let anyAmc = false;
+
+    for (const item of selectedItems) {
+      const nameRaw = item.name.trim();
+      const nameLower = nameRaw.toLowerCase();
+      const qty = Number(item.quantity || 0);
+
+      // find existing stock (prefer id)
+      const stock = (item.id && stockById.get(item.id)) || stockByName.get(nameLower) || null;
+
+      if (category === "sale") {
+        if (stock) {
+          await updateDoc(doc(db, "stock", stock.id), { quantity: (stock.quantity || 0) - qty });
+          // keep local copy in sync
+          stock.quantity = (stock.quantity || 0) - qty;
+        } else {
+          // Shouldn't happen due to pre-check, but guard:
+          console.warn("Sale: stock missing for", nameRaw);
+        }
+      } else if (category === "purchase") {
+        if (stock) {
+          await updateDoc(doc(db, "stock", stock.id), { quantity: (stock.quantity || 0) + qty });
+          stock.quantity = (stock.quantity || 0) + qty;
+        } else {
+          // create new stock document for purchased custom item
+          const newStockRef = await addDoc(collection(db, "stock"), {
+            name: nameRaw,
+            quantity: qty,
+            createdAt: new Date(date || Date.now()),
+          });
+          // add to local map for future iterations
+          stockById.set(newStockRef.id, { id: newStockRef.id, name: nameRaw, nameLower, quantity: qty, type: item.type || "item" });
+        }
+      }
+
+      itemsForCashflow.push({
+        itemName: nameRaw,
+        quantity: qty,
+        type: item.type || "item",
+      });
+
+      if (item.type === "amc") anyAmc = true;
+    }
+
+    // --- Create single cashflow doc containing all items
+    const cashflowDocRef = await addDoc(collection(db, "cashflow"), {
+      type,
+      category,
+      amount: Number(amount),
+      description,
+      date: date ? new Date(date) : new Date(),
+      recordedBy: "admin",
+      items: itemsForCashflow, // array of items
+      createdAt: new Date(),
+    });
+
+    // --- If any item is an AMC, create a customer and link the cashflowId
+    if (anyAmc) {
+      // If you want one customer per AMC item, loop selectedItems.filter(i => i.type === 'amc')
+      // Here we create one customer using the first AMC item:
+      const firstAmc = selectedItems.find(i => i.type === "amc");
+      if (firstAmc) {
+        const customerRef = await addDoc(collection(db, "customers"), {
+          name: formData.name || "—",
+          phone: formData.phone || "—",
+          address: formData.address || "—",
+          amcStart: date || new Date().toISOString().split("T")[0],
+          amcEnd: calculateAmcEnd(date || new Date().toISOString().split("T")[0]),
+          quantity: Number(firstAmc.quantity) || 1,
+          amcItem: firstAmc.name,
+          charge: Number(amount),
+          cashflowId: cashflowDocRef.id,
+          createdAt: new Date(),
+        });
+
+        // also update cashflow with a customerId if you want
+        await updateDoc(doc(db, "cashflow", cashflowDocRef.id), { customerId: customerRef.id });
+      }
+    }
+
+    // refresh UI lists and reset form state
+    await fetchStock();
+    await fetchEntries();
+
+    setSelectedItems([]);
     setAmount("");
-    setItemName("");
-    setQuantity();
     setDescription("");
     setDate("");
+    setItemInput("");
+    setFormData({ name: "", phone: "", address: "" });
 
-  };
+    toast.success("✅ Transaction added!");
+  } catch (err) {
+    console.error("handleAddEntry error:", err);
+    toast.error("Something went wrong while saving.");
+  }
+};
+
+   const hasAmcItem = selectedItems.some((item) => item.type === "amc");
+
+
+  const handleItemInput = (e) => {
+  const value = e.target.value;
+  setItemInput(value);
+  
+
+  if (value.trim() === "") {
+    setSuggestions([]);
+    return;
+  }
+
+  const filtered = stockItems.filter((item) =>
+    item.name.toLowerCase().includes(value.toLowerCase())
+  );
+  setSuggestions(filtered);
+};
+
+const addItem = (input) => {
+  const match = stockItems.find(
+    (i) => i.name.toLowerCase() === input.trim().toLowerCase()
+  );
+
+  if (match) {
+    setSelectedItems((prev) => {
+      const existing = prev.find((i) => i.id === match.id);
+      if (existing) {
+        return prev.map((i) =>
+          i.id === match.id ? { ...i, quantity: i.quantity + 1 } : i
+        );
+      } else {
+        return [...prev, { ...match, quantity: 1 }];
+      }
+    });
+  } else {
+    const customId = `custom-${input.trim()}`;
+    setSelectedItems((prev) => {
+      const existing = prev.find((i) => i.id === customId);
+      if (existing) {
+        return prev.map((i) =>
+          i.id === customId ? { ...i, quantity: i.quantity + 1 } : i
+        );
+      } else {
+        return [
+          ...prev,
+          { id: customId, name: input.trim(), custom: true, quantity: 1 },
+        ];
+      }
+    });
+  }
+
+  setItemInput("");
+  setSuggestions([]);
+};
+
+const removeOneItem = (id) => {
+  setSelectedItems((prev) =>
+    prev
+      .map((item) =>
+        item.id === id ? { ...item, quantity: item.quantity - 1 } : item
+      )
+      .filter((item) => item.quantity > 0)
+  );
+};
+
 
   const handleDeleteEntry = async (id) => {
   if (!window.confirm("⚠️ Are you sure you want to delete this transaction?")) return;
@@ -163,25 +274,31 @@ const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
 
   // Filtered and Searched
   const filteredEntries = useMemo(() => {
-    const now = new Date();
-    return entries.filter(entry => {
-      const entryDate = entry.date.toDate();
-      const matchesFilter =
-        filter === 'day'
-          ? entryDate.toDateString() === now.toDateString()
-          : filter === 'month'
-          ? entryDate.getMonth() === now.getMonth() && entryDate.getFullYear() === now.getFullYear()
-          : filter === 'year'
-          ? entryDate.getFullYear() === now.getFullYear()
-          : true;
+  const now = new Date();
+  return entries.filter(entry => {
+    const entryDate = entry.date.toDate();
 
-      const matchesSearch =
-        entry.description?.toLowerCase().includes(search.toLowerCase()) ||
-        entry.itemName?.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter =
+      filter === 'day'
+        ? entryDate.toDateString() === now.toDateString()
+        : filter === 'month'
+        ? entryDate.getMonth() === now.getMonth() && entryDate.getFullYear() === now.getFullYear()
+        : filter === 'year'
+        ? entryDate.getFullYear() === now.getFullYear()
+        : true;
 
-      return matchesFilter && matchesSearch;
-    });
-  }, [entries, filter, search]);
+   const allItemNames = entry.items
+  ? entry.items.map(i => (i.itemName ? i.itemName.toLowerCase() : ""))
+  : [entry.itemName ? entry.itemName.toLowerCase() : ""];
+
+    const matchesSearch =
+      entry.description?.toLowerCase().includes(search.toLowerCase()) ||
+      allItemNames.some(n => n.includes(search.toLowerCase()));
+
+    return matchesFilter && matchesSearch;
+  });
+}, [entries, filter, search]);
+
 
   const pageCount = Math.ceil(filteredEntries.length / ENTRIES_PER_PAGE);
   const paginatedEntries = filteredEntries.slice((page - 1) * ENTRIES_PER_PAGE, page * ENTRIES_PER_PAGE);
@@ -206,8 +323,9 @@ const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
   };
 
   const suggestedNames = stockItems
-    .filter(item => item.name.toLowerCase().includes(itemName.toLowerCase()))
-    .map(item => item.name);
+  .filter(item => item.name?.toLowerCase().includes(itemName?.toLowerCase() || ''))
+  .map(item => item.name);
+
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -269,33 +387,67 @@ const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
 
           {category !== 'other' && (
             <>
-              <input
-                type="text"
-                className="border p-2 rounded"
-                placeholder="Item Name"
-                value={itemName}
-                onChange={e => handleItemChange(e.target.value)}
-                list="item-suggestions"
-              />
-              <datalist id="item-suggestions">
-                {suggestedNames.map((name, idx) => (
-                  <option key={idx} value={name} />
-                ))}
-              </datalist>
-              <input
-                type="number"
-                className="border p-2 rounded"
-                placeholder="Quantity"
-                value={quantity}
-                onChange={e => setQuantity(e.target.value)}
-              />
+             {/* Multiple Items Input */}
+<div className="col-span-2">
+  <label className="block mb-1 font-medium">Items</label>
+  <input
+    type="text"
+    className="w-full border border-gray-300 p-2 rounded"
+    placeholder="Start typing or add custom item"
+    value={itemInput}
+    onChange={handleItemInput}
+    onKeyDown={(e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (itemInput.trim()) addItem(itemInput);
+      }
+    }}
+  />
+  {/* Suggestions */}
+  {suggestions.length > 0 && (
+    <ul className="border mt-1 rounded bg-white max-h-32 overflow-auto">
+      {suggestions.map((item) => (
+        <li
+          key={item.id}
+          className="px-3 py-1 hover:bg-blue-100 cursor-pointer"
+          onClick={() => addItem(item.name)}
+        >
+          {item.name}
+        </li>
+      ))}
+    </ul>
+  )}
+  {/* Selected Items */}
+  <div className="flex flex-wrap mt-2 gap-2">
+    {selectedItems.map((item) => (
+      <span
+        key={item.id}
+        className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${
+          item.custom
+            ? "bg-yellow-100 text-yellow-800"
+            : "bg-blue-100 text-blue-700"
+        }`}
+      >
+        {item.name} x{item.quantity}
+        <button
+          type="button"
+          className="ml-1 text-red-500 hover:text-red-700 font-bold"
+          onClick={() => removeOneItem(item.id)}
+        >
+          ×
+        </button>
+      </span>
+    ))}
+  </div>
+</div>
+
             </>
           )}
 
           <input type="number" className="border p-2 rounded" placeholder="Amount" value={amount} onChange={e => setAmount(e.target.value)} />
          {selectedItem?.type !== "amc" && (<input type="text" className="border p-2 rounded" placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} />)}
           <input type="date" className="border p-2 rounded" placeholder="Deate" value={date} onChange={e => setDate(e.target.value)} />
-          {selectedItem?.type === "amc" && (
+          {hasAmcItem && (
   <>
     <input
       type="text"
@@ -378,9 +530,12 @@ const [formData, setFormData] = useState({ name: "", phone: "", address: "" });
           <p className="text-lg font-semibold text-gray-800">
             ₹{entry.amount}
           </p>
-          <p className="text-sm text-gray-600">
-            {entry.category} — {entry.itemName || 'N/A'} x {entry.quantity || 1}
-          </p>
+         <p className="text-sm text-gray-600">
+  {entry.category} —{" "}
+  {entry.items
+    ? entry.items.map(i => `${i.itemName} x${i.quantity}`).join(", ")
+    : `${entry.itemName || "N/A"} x${entry.quantity || 1}`}
+</p>
           {entry.description && (
             <p className="text-xs text-gray-500 mt-1">
               📝 {entry.description}
