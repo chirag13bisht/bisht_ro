@@ -35,6 +35,7 @@ export default function Navbar() {
           <Link to="/billform" className="hover:text-yellow-300 transition">Bill Form</Link>
           <Link to="/ledger" className="hover:text-yellow-300 transition">Ledger</Link>
           <Link to="/Booklet" className="hover:text-yellow-300 transition">Booklet</Link>
+          <Link to="/manageproducts" className="hover:text-yellow-300 transition">Manage Product</Link>
           <LogoutButton />
         </div>
 

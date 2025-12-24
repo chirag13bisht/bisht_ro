@@ -146,6 +146,32 @@ export default function DashboardPage() {
     ]
   };
 
+  const monthlyComplaintCounts = Array(12).fill(0);
+  complaints.forEach(c => {
+    // Check if 'date' or 'createdAt' exists and parse it
+    // Assuming your complaint object has a date field like 'date' or 'timestamp'
+    const dateField = c.date || c.createdAt;
+    if (dateField) {
+      const d = new Date(dateField.toDate ? dateField.toDate() : dateField);
+      if (!isNaN(d)) {
+        monthlyComplaintCounts[d.getMonth()]++;
+      }
+    }
+  });
+
+  // 2. Find Max Values for Color Scaling
+  const maxRevenue = Math.max(...monthlyRevenue, 1); // Avoid division by zero
+  const maxComplaints = Math.max(...monthlyComplaintCounts, 1);
+
+  // 3. Helper to get color intensity (opacity)
+  const getIntensity = (val, max) => {
+    const percentage = val / max;
+    // minimal opacity of 0.1 so empty months aren't invisible
+    return Math.max(percentage, 0.1);
+  };
+
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <h2 className="text-3xl font-bold text-blue-700 text-center mb-8">📊 Admin Dashboard</h2>
@@ -178,13 +204,64 @@ export default function DashboardPage() {
 
       {/* Charts */}
       <div className="grid md:grid-cols-2 gap-6 mb-10">
+        <div className="bg-white rounded shadow p-6 mb-10">
+          <h3 className="text-xl font-bold text-gray-700 mb-6 text-center">🔥 Monthly Intensity Heatmap</h3>
+
+          <div className="space-y-8">
+
+            {/* Revenue Heatmap Row */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-500 mb-2">Revenue Intensity (High Sales)</h4>
+              <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
+                {monthlyRevenue.map((val, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <div
+                      className="w-full h-12 rounded border border-gray-100 flex items-center justify-center text-xs font-bold transition-all hover:scale-105 relative group"
+                      style={{
+                        backgroundColor: `rgba(52, 211, 153, ${getIntensity(val, maxRevenue)})`, // Tailwind Green-400 base
+                        color: getIntensity(val, maxRevenue) > 0.6 ? 'white' : 'black'
+                      }}
+                    >
+                      {/* Tooltip on Hover */}
+                      <span className="absolute -top-8 bg-black text-white text-xs p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        ₹{val}
+                      </span>
+                      {months[i]}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Complaint Heatmap Row */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-500 mb-2">Complaint Intensity (High Volume)</h4>
+              <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
+                {monthlyComplaintCounts.map((val, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <div
+                      className="w-full h-12 rounded border border-gray-100 flex items-center justify-center text-xs font-bold transition-all hover:scale-105 relative group"
+                      style={{
+                        backgroundColor: `rgba(248, 113, 113, ${getIntensity(val, maxComplaints)})`, // Tailwind Red-400 base
+                        color: getIntensity(val, maxComplaints) > 0.6 ? 'white' : 'black'
+                      }}
+                    >
+                      {/* Tooltip on Hover */}
+                      <span className="absolute -top-8 bg-black text-white text-xs p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        {val} Complaints
+                      </span>
+                      {months[i]}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
         <div className="bg-white rounded shadow p-4">
           <h3 className="text-lg font-semibold mb-2 text-center">📈 AMC Signups & Revenue</h3>
           <Bar data={barData} />
-        </div>
-        <div className="bg-white rounded shadow p-4">
-          <h3 className="text-lg font-semibold mb-2 text-center">🛠️ Complaint Status</h3>
-          <Pie data={pieData} />
         </div>
       </div>
 

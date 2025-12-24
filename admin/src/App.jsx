@@ -24,6 +24,7 @@ import BillForm from './components/BillForm'
 import PendingLedgerPage from './Pages/PendingLedgerPage';
 import BookletPage from './Pages/BookletPage';
 import { Toaster } from "react-hot-toast";
+import ManageProducts from './Pages/ManageProducts';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null); // null = loading
@@ -67,7 +68,7 @@ function App() {
         <Route path="/complaints/update/:id" element={<ProtectedRoute element={<UpdateComplaint />} />} />
         <Route path="/CashFlow" element={<ProtectedRoute element={<CashFlow />} />} />
         <Route path="/Booklet" element={<ProtectedRoute element={<BookletPage />} />} />
-
+        <Route path="/manageproducts" element={<ProtectedRoute element={<ManageProducts />} />} />
 
         <Route path="*" element={<Navigate to={isLoggedIn ? '/dashboard' : '/login'} />} />
       </Routes>
