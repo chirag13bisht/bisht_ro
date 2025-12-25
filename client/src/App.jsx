@@ -12,6 +12,9 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Profile from './pages/Profile';
 import WhatsAppButton from './components/WhatsAppButton';
+import ShareButton from './components/ShareButton';
+import Footer from './components/Footer';
+import Home from './pages/Home';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -50,22 +53,30 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      {/* Navbar gets the FULL user object now */}
-      <Navbar user={user} />
-      
-      <div className="bg-gray-50 min-h-screen">
-        <Routes>
-          {/* ✅ PUBLIC ROUTES (Accessible to everyone) */}
-          <Route path="/" element={<Shop />} />
-          <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+      {/* 2. Change the main wrapper to 'flex flex-col' */}
+      <div className="bg-gray-50 min-h-screen flex flex-col relative">
+        
+        <Navbar user={user} />
+        
+        {/* 3. Add 'flex-grow' to the Routes wrapper so it pushes Footer down */}
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/product/:id" element={<ProductDetail />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/complaint" element={user ? <Complaint user={user} /> : <Login />} />
+            <Route path="/profile" element={user ? <Profile user={user} /> : <Login />} />
+            {/* ... debug route if you still have it ... */}
+          </Routes>
+        </main>
 
-          {/* 🔒 PROTECTED ROUTE (Only for logged in users) */}
-          <Route path="/complaint" element={user ? <Complaint user={user} /> : <Login />} />
-          <Route path="/profile" element={user ? <Profile user={user} /> : <Login />} />
-        </Routes>
-        <WhatsAppButton/>
+        {/* 4. Add Footer here at the bottom */}
+        <Footer />
+        <ShareButton/>
+        <WhatsAppButton />
+        
       </div>
     </BrowserRouter>
   );
