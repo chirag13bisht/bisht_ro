@@ -61,6 +61,7 @@ export default function Navbar() {
           <Link to="/billform" className="block py-2 hover:text-yellow-300"onClick={() => setIsOpen(false)}>Bill Form</Link>
           <Link to="/ledger" className="block py-2 hover:text-yellow-300"onClick={() => setIsOpen(false)}>Ledger</Link>
           <Link to="/Booklet" className="block py-2 hover:text-yellow-300"onClick={() => setIsOpen(false)}>Booklet</Link>
+          <Link to="/manageproducts" className="block py-2 hover:text-yellow-300"onClick={() => setIsOpen(false)}>Manage Product</Link>
           <div className="pt-2">
             <LogoutButton />
           </div>

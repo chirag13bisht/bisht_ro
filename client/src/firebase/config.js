@@ -1,9 +1,13 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from 'firebase/firestore'; // 👈 New Imports
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-   apiKey: "AIzaSyCpFphoGvOXC0xwEqwox6XgfFWcfsMVjRw",
+  apiKey: "AIzaSyCpFphoGvOXC0xwEqwox6XgfFWcfsMVjRw",
   authDomain: "bisht-ro.firebaseapp.com",
   projectId: "bisht-ro",
   storageBucket: "bisht-ro.firebasestorage.app",
@@ -13,7 +17,13 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+
+// ✅ NEW WAY: Initialize Firestore with Offline Persistence enabled immediately
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager() // Allows offline data across multiple browser tabs
+  })
+});
 
 const auth = getAuth(app); 
 
